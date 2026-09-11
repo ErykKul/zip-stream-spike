@@ -49,14 +49,13 @@
 </div>
 
 <div id="ask" class="card ask" hidden>
-  <p>Open your browser's download list now, while the counter above is still climbing.</p>
-  <ol class="steps">
-    <li>Safari: click the download arrow in the toolbar. Chrome or Firefox: the downloads button or Ctrl/Cmd+J.</li>
-    <li>Look for <code>check.bin</code>.</li>
-  </ol>
-  <p style="margin-top:10px">Is it listed with a size that keeps growing?</p>
-  <button id="askYes">Yes, it is there and growing</button>
-  <button id="askNo">No, nothing is listed yet</button>
+  <p>Watch this browser's memory while the counter above climbs.</p>
+  <ol class="steps" id="memSteps"></ol>
+  <p style="margin-top:10px">Does that number stay roughly flat, or climb along with the counter above?</p>
+  <button id="askFlat">Stays flat</button>
+  <button id="askClimb">Climbs with the counter</button>
+  <button id="askUnsure">Cannot tell</button>
+  <p class="sub" style="margin-top:10px">Ignore the file size in the download list. Browsers pre-allocate the file to its full announced length, so that number proves nothing either way.</p>
 </div>
 
 <div id="verdict" class="card" hidden>
@@ -360,8 +359,25 @@ $('run').onclick = async () => {
   }
 }
 
-$('askYes').onclick = () => { askAnswered = true; checkResult = 'growing'; $('ask').hidden = true }
-$('askNo').onclick = () => { askAnswered = true; checkResult = 'not listed'; $('ask').hidden = true }
+$('askFlat').onclick = () => { askAnswered = true; checkResult = 'flat'; $('ask').hidden = true }
+$('askClimb').onclick = () => { askAnswered = true; checkResult = 'climbing'; $('ask').hidden = true }
+$('askUnsure').onclick = () => { askAnswered = true; checkResult = 'unsure'; $('ask').hidden = true }
+
+const isMac = /Mac/.test(navigator.platform || '') || /Mac OS X/.test(navigator.userAgent)
+const isWin = /Win/.test(navigator.platform || '')
+const isChromium = !!window.chrome && !/Firefox/.test(navigator.userAgent)
+$('memSteps').innerHTML = isChromium
+  ? '<li>Open the browser\'s own task manager: Chrome menu, More tools, Task manager (Shift+Esc on Windows and Linux).</li>' +
+    '<li>Find the row for this tab and read its Memory footprint.</li>'
+  : isMac
+  ? '<li>Open Activity Monitor: Command+Space, type <code>Activity Monitor</code>, Enter.</li>' +
+    '<li>Click the Memory tab and type <code>Web Content</code> in the search box.</li>' +
+    '<li>Read the Memory column of the busiest row. It refreshes every few seconds.</li>'
+  : isWin
+  ? '<li>Open Task Manager with Ctrl+Shift+Esc.</li>' +
+    '<li>Expand your browser and read the memory of the busiest process.</li>'
+  : '<li>Run <code>top</code> or your system monitor.</li>' +
+    '<li>Read the memory of the busiest browser content process.</li>'
 
 function finishVerdict(run) {
   const caps = [
@@ -374,13 +390,13 @@ function finishVerdict(run) {
   if (!run.completed) {
     text = '<strong class="bad">The run did not finish.</strong> ' + run.message +
       ' If the tab froze or reloaded on its own, the browser was buffering in memory.'
-  } else if (checkResult === 'growing') {
-    text = '<strong class="ok">It streams to disk.</strong> The file was on disk and growing while the page was still generating, so this browser does not need a size cap on the service worker path.'
-  } else if (checkResult === 'not listed') {
-    text = '<strong class="bad">It buffers in memory.</strong> Nothing reached the download list until the end, so this browser needs a size cap even though the service worker works.'
+  } else if (checkResult === 'flat') {
+    text = '<strong class="ok">It streams to disk.</strong> Memory stayed flat while ' + fmt(run.bytes) + ' went through, so the bytes were handed to disk as they arrived. This browser does not need a size cap on the service worker path.'
+  } else if (checkResult === 'climbing') {
+    text = '<strong class="bad">It buffers in memory.</strong> Memory tracked the counter, so the browser held the file in RAM. This browser needs a size cap even though the service worker works.'
   } else {
-    text = '<strong class="warn">Finished, but you did not answer the download-list question.</strong> ' +
-      'The run completing at ' + fmt(run.bytes) + ' without the tab dying is a good sign, but only the download list proves it went to disk as it went.'
+    text = '<strong class="warn">Finished, but the memory question is unanswered.</strong> ' +
+      'Completing ' + fmt(run.bytes) + ' without the tab dying is a good sign on its own, since buffering that much would normally kill it, but the memory reading is what settles it.'
   }
   if (run.stalled) text += ' Generation stalled for more than 15 s at one point, which usually means the browser stopped pulling.'
 
@@ -393,7 +409,7 @@ function finishVerdict(run) {
     'expected=' + CHECK_TOTAL,
     'seconds=' + run.seconds.toFixed(0),
     'completed=' + run.completed,
-    'downloadList=' + (checkResult || 'unanswered'),
+    'memory=' + (checkResult || 'unanswered'),
     'stalled=' + run.stalled,
     'peakJsHeap=' + (peakHeap ? peakHeap : 'n/a'),
     'note=' + run.message

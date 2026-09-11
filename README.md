@@ -7,11 +7,16 @@ IQSS/dataverse-frontend#898. Hosted at <https://erykkul.github.io/zip-stream-spi
 
 Open the page and press **Run the check**. It streams 4 GB through a service
 worker to your Downloads folder at 50 MB/s, so it takes about 80 seconds.
-After a few seconds the page asks you to open the browser's download list and
-say whether `check.bin` is listed and growing. That answer is the whole test:
-a file on disk while the counter is still climbing means the browser writes
-as it goes, a file that appears only at the end means it buffered the lot in
-memory. Press **Copy result** at the end and send the block back.
+After a few seconds the page tells you where to read this browser's memory
+(Activity Monitor on macOS, the browser's own task manager on Chromium) and
+asks whether that number stays flat or climbs along with the counter. That
+answer is the whole test: flat memory while gigabytes go past means the bytes
+were handed to disk as they arrived. Press **Copy result** at the end and send
+the block back.
+
+Do not use the file size in the download list. Browsers pre-allocate the file
+to its full announced `Content-Length`, and some do not refresh the panel while
+it is open, so that number proves nothing either way.
 
 Two things are recorded without you having to do anything. If the tab dies
 mid-run, reopening the page reports how far it got, which is itself the answer:
