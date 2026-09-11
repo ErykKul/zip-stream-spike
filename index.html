@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Streaming download spike</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 720px; padding: 24px 16px; }
+  fieldset { border: 1px solid #ccc; border-radius: 6px; margin: 0 0 16px; padding: 12px 16px; }
+  legend { font-weight: 600; }
+  button { font: inherit; padding: 8px 14px; margin: 4px 8px 4px 0; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0 0; }
+  dt { color: #555; }
+  code { background: #f3f3f3; padding: 0 4px; }
+  .ok { color: #1a7f37; } .bad { color: #b42318; }
+  label { display: inline-block; margin-right: 12px; }
+  input[type=number] { width: 7em; }
+</style>
+</head>
+<body>
+<h1>Streaming download spike</h1>
+<p>Generates data slowly and saves it two ways. Watch the browser's download list: a file that appears early and grows is streaming; one that appears only at the end was buffered.</p>
+
+<fieldset>
+  <legend>Settings</legend>
+  <label>Total <input id="totalMb" type="number" value="2048" min="1"> MB</label>
+  <label>Rate <input id="rateMbs" type="number" value="1" min="0.1" step="0.1"> MB/s</label>
+  <label><input id="keepalive" type="checkbox" checked> keepalive ping every 10 s</label>
+  <label><input id="transferable" type="checkbox" checked> transfer the stream (uncheck to force MessageChannel)</label>
+  <label><input id="shortClose" type="checkbox"> close early: announce the full Content-Length but stop at half</label>
+</fieldset>
+
+<fieldset>
+  <legend>A. Service worker stream</legend>
+  <button id="startSw">Start</button>
+  <button id="abortSw" disabled>Abort (error the stream)</button>
+  <dl>
+    <dt>API available</dt><dd id="swAvail">checking</dd>
+    <dt>Transferable streams</dt><dd id="xferAvail">checking</dd>
+    <dt>Bytes generated</dt><dd id="swBytes">0</dd>
+    <dt>Elapsed</dt><dd id="swElapsed">0 s</dd>
+    <dt>Status</dt><dd id="swStatus">idle</dd>
+  </dl>
+</fieldset>
+
+<fieldset>
+  <legend>B. OPFS spool</legend>
+  <button id="startOpfs">Start</button>
+  <button id="abortOpfs" disabled>Abort</button>
+  <dl>
+    <dt>API available</dt><dd id="opfsAvail">checking</dd>
+    <dt>Bytes generated</dt><dd id="opfsBytes">0</dd>
+    <dt>Elapsed</dt><dd id="opfsElapsed">0 s</dd>
+    <dt>Status</dt><dd id="opfsStatus">idle</dd>
+  </dl>
+</fieldset>
+
+<fieldset>
+  <legend>Page</legend>
+  <dl>
+    <dt>User agent</dt><dd id="ua"></dd>
+    <dt>JS heap (Chrome only)</dt><dd id="heap">n/a</dd>
+  </dl>
+</fieldset>
+
+<iframe id="dl" hidden></iframe>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const MB = 1024 * 1024
+$('ua').textContent = navigator.userAgent
+const fmt = (n) => (n >= 1024 * MB ? (n / (1024 * MB)).toFixed(2) + ' GB' : (n / MB).toFixed(1) + ' MB')
+
+const swSupported = 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')
+$('swAvail').textContent = swSupported ? 'yes' : 'no (needs HTTPS or localhost)'
+$('swAvail').className = swSupported ? 'ok' : 'bad'
+
+let transferable = false
+try {
+  const mc = new MessageChannel()
+  const rs = new ReadableStream()
+  mc.port1.postMessage(rs, [rs])
+  transferable = true
+} catch (e) { transferable = false }
+$('xferAvail').textContent = transferable ? 'yes' : 'no, MessageChannel fallback'
+$('xferAvail').className = transferable ? 'ok' : ''
+if (!transferable) $('transferable').checked = false
+
+const opfsSupported = !!(navigator.storage && navigator.storage.getDirectory)
+const writableSupported = typeof FileSystemFileHandle !== 'undefined' && 'createWritable' in FileSystemFileHandle.prototype
+$('opfsAvail').textContent = !opfsSupported ? 'no' : writableSupported ? 'yes (createWritable)' : 'directory only; createWritable missing, sync handle worker needed'
+$('opfsAvail').className = opfsSupported && writableSupported ? 'ok' : opfsSupported ? '' : 'bad'
+
+if (performance.memory) {
+  setInterval(() => { $('heap').textContent = fmt(performance.memory.usedJSHeapSize) }, 2000)
+}
+
+// Generates `total` bytes at `rate` bytes per second, in 256 KB chunks, with a recognisable pattern.
+function makeGenerator(total, rate, onProgress) {
+  const chunkSize = 256 * 1024
+  let produced = 0
+  let seq = 0
+  const started = performance.now()
+  let aborted = null
+  async function* gen() {
+    while (produced < total) {
+      if (aborted) throw aborted
+      const n = Math.min(chunkSize, total - produced)
+      const chunk = new Uint8Array(n)
+      for (let i = 0; i < n; i += 4) {
+        const v = seq++ >>> 0
+        chunk[i] = v & 255; chunk[i + 1] = (v >>> 8) & 255; chunk[i + 2] = (v >>> 16) & 255; chunk[i + 3] = (v >>> 24) & 255
+      }
+      produced += n
+      onProgress(produced, performance.now() - started)
+      const expected = (produced / rate) * 1000
+      const wait = expected - (performance.now() - started)
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+      yield chunk
+    }
+  }
+  return { gen, abort: (err) => { aborted = err } }
+}
+
+function settings() {
+  return { total: Number($('totalMb').value) * MB, rate: Number($('rateMbs').value) * MB }
+}
+
+// ---- A. service worker -------------------------------------------------
+let swReady = null
+if (swSupported) {
+  swReady = (async () => {
+    await navigator.serviceWorker.register('sw.js', { scope: './' })
+    await navigator.serviceWorker.ready
+    if (!navigator.serviceWorker.controller) {
+      if (sessionStorage.getItem('sw-reloaded')) throw new Error('page is still not controlled after a reload')
+      sessionStorage.setItem('sw-reloaded', '1')
+      $('swAvail').textContent = 'installed, reloading once to take control'
+      location.reload()
+      await new Promise(() => {})
+    }
+    sessionStorage.removeItem('sw-reloaded')
+    $('swAvail').textContent = 'yes, page controlled'
+    return navigator.serviceWorker.controller
+  })()
+  swReady.catch((e) => { $('swAvail').textContent = 'failed: ' + e.message; $('swAvail').className = 'bad' })
+}
+async function ensureSw() {
+  if (!swReady) throw new Error('service worker not available here')
+  return swReady
+}
+
+let swAbort = null
+let keepaliveTimer = null
+$('startSw').onclick = async () => {
+  try {
+    const { total, rate } = settings()
+    const controller = await ensureSw()
+    $('startSw').disabled = true
+    $('abortSw').disabled = false
+    const id = Math.random().toString(36).slice(2)
+    const shortClose = $('shortClose').checked
+    const g = makeGenerator(shortClose ? Math.floor(total / 2) : total, rate, (bytes, ms) => {
+      $('swBytes').textContent = fmt(bytes) + ' (' + bytes + ')'
+      $('swElapsed').textContent = (ms / 1000).toFixed(0) + ' s'
+    })
+    swAbort = () => g.abort(new Error('aborted by user'))
+    const it = g.gen()
+    const stream = new ReadableStream({
+      async pull(c) {
+        try {
+          const { value, done } = await it.next()
+          if (done) { c.close(); finish(shortClose ? 'done, stream closed early at half of the announced length' : 'done, stream closed') } else c.enqueue(value)
+        } catch (e) {
+          c.error(e); finish('errored: ' + e.message)
+        }
+      },
+      cancel(reason) { g.abort(new Error('cancelled by browser: ' + reason)); finish('cancelled by the browser') }
+    })
+    const registered = new Promise((resolve) => {
+      const onMsg = (e) => { if (e.data && e.data.type === 'registered' && e.data.id === id) { navigator.serviceWorker.removeEventListener('message', onMsg); resolve() } }
+      navigator.serviceWorker.addEventListener('message', onMsg)
+    })
+    if ($('transferable').checked && transferable) {
+      controller.postMessage({ type: 'register', id, name: 'test.bin', size: total, stream }, [stream])
+    } else {
+      const mc = new MessageChannel()
+      const reader = stream.getReader()
+      mc.port1.onmessage = async (e) => {
+        const t = e.data && e.data.type
+        if (t === 'pull') {
+          try {
+            const { value, done } = await reader.read()
+            if (done) mc.port1.postMessage({ type: 'close' })
+            else mc.port1.postMessage({ type: 'chunk', chunk: value.buffer }, [value.buffer])
+          } catch (err) {
+            mc.port1.postMessage({ type: 'error', message: err.message })
+          }
+        } else if (t === 'cancel') {
+          reader.cancel('cancelled by worker')
+        }
+      }
+      controller.postMessage({ type: 'register', id, name: 'test.bin', size: total, port: mc.port2 }, [mc.port2])
+    }
+    await registered
+    const url = new URL('zipdl/' + id + '/test.bin', location.href).href
+    if ($('keepalive').checked) {
+      keepaliveTimer = setInterval(() => { fetch(new URL('zipdl/' + id + '/keepalive', location.href).href, { cache: 'no-store' }).catch(() => {}) }, 10000)
+    }
+    $('swStatus').textContent = 'download started via iframe: ' + url
+    $('dl').src = url
+  } catch (e) {
+    $('swStatus').textContent = 'failed to start: ' + e.message
+    $('swStatus').className = 'bad'
+  }
+}
+function finish(msg) {
+  $('swStatus').textContent = msg
+  $('startSw').disabled = false
+  $('abortSw').disabled = true
+  if (keepaliveTimer) { clearInterval(keepaliveTimer); keepaliveTimer = null }
+}
+$('abortSw').onclick = () => { if (swAbort) swAbort() }
+
+// ---- B. OPFS spool -----------------------------------------------------
+let opfsAbort = null
+$('startOpfs').onclick = async () => {
+  if (!opfsSupported) return
+  $('startOpfs').disabled = true
+  $('abortOpfs').disabled = false
+  const { total, rate } = settings()
+  try {
+    const root = await navigator.storage.getDirectory()
+    const handle = await root.getFileHandle('spool.bin', { create: true })
+    const g = makeGenerator(total, rate, (bytes, ms) => {
+      $('opfsBytes').textContent = fmt(bytes) + ' (' + bytes + ')'
+      $('opfsElapsed').textContent = (ms / 1000).toFixed(0) + ' s'
+    })
+    opfsAbort = () => g.abort(new Error('aborted by user'))
+    if (writableSupported) {
+      const w = await handle.createWritable({ keepExistingData: false })
+      $('opfsStatus').textContent = 'writing to OPFS with createWritable'
+      try {
+        for await (const chunk of g.gen()) await w.write(chunk)
+        await w.close()
+      } catch (e) {
+        await w.abort(e).catch(() => {})
+        throw e
+      }
+    } else {
+      $('opfsStatus').textContent = 'writing to OPFS via sync access handle in a worker'
+      await spoolViaWorker(g, total)
+    }
+    const file = await handle.getFile()
+    $('opfsStatus').textContent = 'spooled ' + fmt(file.size) + ' to disk, offering download'
+    const url = URL.createObjectURL(file)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'spool.bin'; document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+    $('opfsStatus').textContent += '; download triggered from the OPFS file'
+  } catch (e) {
+    $('opfsStatus').textContent = 'failed: ' + e.message
+    $('opfsStatus').className = 'bad'
+  } finally {
+    $('startOpfs').disabled = false
+    $('abortOpfs').disabled = true
+  }
+}
+$('abortOpfs').onclick = () => { if (opfsAbort) opfsAbort() }
+
+function spoolViaWorker(g, total) {
+  const code = `
+    let handle, offset = 0
+    onmessage = async (e) => {
+      const m = e.data
+      if (m.type === 'open') {
+        const root = await navigator.storage.getDirectory()
+        const fh = await root.getFileHandle('spool.bin', { create: true })
+        handle = await fh.createSyncAccessHandle()
+        handle.truncate(0)
+        postMessage({ type: 'ready' })
+      } else if (m.type === 'chunk') {
+        handle.write(new Uint8Array(m.chunk), { at: offset }); offset += m.chunk.byteLength
+        postMessage({ type: 'written' })
+      } else if (m.type === 'close') {
+        handle.flush(); handle.close(); postMessage({ type: 'closed' })
+      }
+    }`
+  const worker = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })))
+  const ask = (msg, transfer, reply) => new Promise((resolve) => {
+    worker.onmessage = (e) => { if (e.data.type === reply) resolve() }
+    worker.postMessage(msg, transfer || [])
+  })
+  return (async () => {
+    await ask({ type: 'open' }, [], 'ready')
+    for await (const chunk of g.gen()) await ask({ type: 'chunk', chunk: chunk.buffer }, [chunk.buffer], 'written')
+    await ask({ type: 'close' }, [], 'closed')
+    worker.terminate()
+  })()
+}
+</script>
+</body>
+</html>
