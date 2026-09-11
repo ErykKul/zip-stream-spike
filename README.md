@@ -47,6 +47,22 @@ Chromium 140 (system, via Selenium and Chrome's own download manager) and Firefo
 | OPFS spool | `createWritable`, then download from the disk-backed File | `createWritable`, same |
 | Renderer memory over 1 GB | 434 to 498 MB, flat | 610 MB, warm-up peak 1040 MB in the first 4 min, then 625 to 680 MB, flat |
 
+## Results, macOS Safari, 2026-09-11
+
+Safari 18.2 (`Version/18.2 Safari/605.1.15`) on macOS, one-button check, 4 GB at 50 MB/s.
+
+| Check | Result |
+|---|---|
+| Service worker registered and controlling | yes |
+| Transferable `ReadableStream` | **no**, the MessageChannel path is what Safari uses |
+| OPFS | `createSyncAccessHandle` only, no `createWritable`, so the worker path |
+| 4 GB through the service worker | completed in 82 s, no stall, stream closed cleanly |
+| Download list during the run | listed with a normal, advancing size indicator |
+
+Desktop Safari therefore needs no size cap on the service worker path, but it
+does need the MessageChannel fallback and, if anything ever spools to OPFS
+there, a sync access handle in a worker.
+
 Consequences for the implementation:
 
 - The keepalive is mandatory. Firefox kills the worker at about 30 s and turns the truncation into a "complete" download.
