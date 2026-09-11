@@ -1,14 +1,32 @@
 # Streaming download spike
 
 Standalone test page for the streaming zip download design in
-IQSS/dataverse-frontend#898. Open the page over HTTPS, pick a size and rate,
-and watch the browser's download list: a file that appears early and grows
-is streaming; one that appears only when generation ends was buffered.
+IQSS/dataverse-frontend#898. Hosted at <https://erykkul.github.io/zip-stream-spike/>.
+
+## Running the check
+
+Open the page and press **Run the check**. It streams 4 GB through a service
+worker to your Downloads folder at 50 MB/s, so it takes about 80 seconds.
+After a few seconds the page asks you to open the browser's download list and
+say whether `check.bin` is listed and growing. That answer is the whole test:
+a file on disk while the counter is still climbing means the browser writes
+as it goes, a file that appears only at the end means it buffered the lot in
+memory. Press **Copy result** at the end and send the block back.
+
+Two things are recorded without you having to do anything. If the tab dies
+mid-run, reopening the page reports how far it got, which is itself the answer:
+running out of memory means it was not streaming. And if the browser stops
+pulling for more than 15 seconds, the result says so.
+
+`?totalMb=512&rateMbs=50` overrides the size and rate for a quicker run.
+
+Everything else lives under **Advanced**, collapsed by default:
 
 - A: service worker stream (transferable stream or MessageChannel), keepalive ping, optional early close
 - B: OPFS spool (createWritable, or a sync access handle in a worker where that is missing)
 
-`run.mjs` drives the page in Chromium or Firefox on Linux and reports file growth and renderer memory.
+`run.mjs`, `run_selenium.py` and `run_firefox.py` drive the Advanced controls in
+Chromium or Firefox on Linux and report file growth and renderer memory.
 
 ## Results, Linux, 2026-09-11
 

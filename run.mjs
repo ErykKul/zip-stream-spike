@@ -33,6 +33,7 @@ function rendererRssMB() {
 }
 
 await page.goto(base, { waitUntil: 'networkidle' })
+await page.evaluate(() => { const d = document.getElementById('advanced'); if (d) d.open = true })
 await page.waitForFunction(() => /controlled|failed|no \(/.test(document.getElementById('swAvail').textContent), null, { timeout: 30000 })
 log('page:', await page.locator('#swAvail').textContent(), '| transferable:', await page.locator('#xferAvail').textContent(), '| opfs:', await page.locator('#opfsAvail').textContent())
 

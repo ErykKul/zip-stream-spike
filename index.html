@@ -3,22 +3,71 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Streaming download spike</title>
+<title>Streaming download check</title>
 <style>
-  body { font: 15px/1.5 system-ui, sans-serif; margin: 0 auto; max-width: 720px; padding: 24px 16px; }
+  body { font: 15px/1.55 system-ui, sans-serif; margin: 0 auto; max-width: 720px; padding: 24px 16px; color: #111; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: #444; margin: 0 0 20px; }
   fieldset { border: 1px solid #ccc; border-radius: 6px; margin: 0 0 16px; padding: 12px 16px; }
   legend { font-weight: 600; }
   button { font: inherit; padding: 8px 14px; margin: 4px 8px 4px 0; }
+  #run { font-size: 18px; padding: 14px 28px; margin: 0 0 16px; }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0 0; }
   dt { color: #555; }
   code { background: #f3f3f3; padding: 0 4px; }
-  .ok { color: #1a7f37; } .bad { color: #b42318; }
+  .ok { color: #1a7f37; } .bad { color: #b42318; } .warn { color: #9a6700; }
   label { display: inline-block; margin-right: 12px; }
   input[type=number] { width: 7em; }
+  .card { border: 1px solid #ccc; border-radius: 6px; padding: 12px 16px; margin: 0 0 16px; }
+  .counter { font-size: 30px; font-variant-numeric: tabular-nums; margin: 4px 0; }
+  .sub { color: #555; }
+  .ask { background: #fff8e5; border-color: #e0c060; }
+  .ask p { margin: 0 0 10px; font-weight: 600; }
+  pre { background: #f3f3f3; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+  details { margin-top: 28px; }
+  summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+  .banner { background: #fdecea; border: 1px solid #e0a0a0; border-radius: 6px; padding: 12px 16px; margin: 0 0 16px; }
+  .steps { margin: 0; padding-left: 20px; color: #444; }
 </style>
 </head>
 <body>
-<h1>Streaming download spike</h1>
+<h1>Streaming download check</h1>
+<p class="lede">Answers one question: when this browser saves a file that a page is still generating, does it write the bytes to disk as they arrive, or hold the whole file in memory first?</p>
+
+<div id="crashBanner" class="banner" hidden>
+  <strong>Your last run did not finish.</strong>
+  <div id="crashDetail"></div>
+  <button id="dismissCrash">Dismiss</button>
+</div>
+
+<button id="run">Run the check</button>
+
+<div id="live" class="card" hidden>
+  <div class="counter"><span id="liveBytes">0 MB</span> <span class="sub" id="livePct"></span></div>
+  <div class="sub"><span id="liveElapsed">0 s</span> elapsed, <span id="liveRate">0 MB/s</span>, target <span id="liveTotal"></span></div>
+  <div class="sub" id="liveStatus">starting</div>
+</div>
+
+<div id="ask" class="card ask" hidden>
+  <p>Open your browser's download list now, while the counter above is still climbing.</p>
+  <ol class="steps">
+    <li>Safari: click the download arrow in the toolbar. Chrome or Firefox: the downloads button or Ctrl/Cmd+J.</li>
+    <li>Look for <code>check.bin</code>.</li>
+  </ol>
+  <p style="margin-top:10px">Is it listed with a size that keeps growing?</p>
+  <button id="askYes">Yes, it is there and growing</button>
+  <button id="askNo">No, nothing is listed yet</button>
+</div>
+
+<div id="verdict" class="card" hidden>
+  <div id="verdictText"></div>
+  <pre id="resultLine"></pre>
+  <button id="copy">Copy result</button>
+</div>
+
+<details id="advanced">
+<summary>Advanced (the original spike controls)</summary>
+
 <p>Generates data slowly and saves it two ways. Watch the browser's download list: a file that appears early and grows is streaming; one that appears only at the end was buffered.</p>
 
 <fieldset>
@@ -62,6 +111,7 @@
     <dt>JS heap (Chrome only)</dt><dd id="heap">n/a</dd>
   </dl>
 </fieldset>
+</details>
 
 <iframe id="dl" hidden></iframe>
 
@@ -91,42 +141,46 @@ const writableSupported = typeof FileSystemFileHandle !== 'undefined' && 'create
 $('opfsAvail').textContent = !opfsSupported ? 'no' : writableSupported ? 'yes (createWritable)' : 'directory only; createWritable missing, sync handle worker needed'
 $('opfsAvail').className = opfsSupported && writableSupported ? 'ok' : opfsSupported ? '' : 'bad'
 
+let peakHeap = 0
 if (performance.memory) {
-  setInterval(() => { $('heap').textContent = fmt(performance.memory.usedJSHeapSize) }, 2000)
+  setInterval(() => {
+    const used = performance.memory.usedJSHeapSize
+    if (used > peakHeap) peakHeap = used
+    $('heap').textContent = fmt(used)
+  }, 1000)
 }
 
-// Generates `total` bytes at `rate` bytes per second, in 256 KB chunks, with a recognisable pattern.
+// Generates `total` bytes at `rate` bytes per second (rate 0 = as fast as the
+// consumer pulls), in 1 MB chunks copied from one prebuilt pattern buffer.
 function makeGenerator(total, rate, onProgress) {
-  const chunkSize = 256 * 1024
+  const chunkSize = 1024 * 1024
+  const pattern = new Uint8Array(chunkSize)
+  for (let i = 0; i < chunkSize; i += 4) {
+    const v = (i / 4) >>> 0
+    pattern[i] = v & 255; pattern[i + 1] = (v >>> 8) & 255; pattern[i + 2] = (v >>> 16) & 255; pattern[i + 3] = (v >>> 24) & 255
+  }
   let produced = 0
-  let seq = 0
   const started = performance.now()
   let aborted = null
   async function* gen() {
     while (produced < total) {
       if (aborted) throw aborted
       const n = Math.min(chunkSize, total - produced)
-      const chunk = new Uint8Array(n)
-      for (let i = 0; i < n; i += 4) {
-        const v = seq++ >>> 0
-        chunk[i] = v & 255; chunk[i + 1] = (v >>> 8) & 255; chunk[i + 2] = (v >>> 16) & 255; chunk[i + 3] = (v >>> 24) & 255
-      }
+      const chunk = pattern.slice(0, n)
       produced += n
       onProgress(produced, performance.now() - started)
-      const expected = (produced / rate) * 1000
-      const wait = expected - (performance.now() - started)
-      if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+      if (rate > 0) {
+        const expected = (produced / rate) * 1000
+        const wait = expected - (performance.now() - started)
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+      }
       yield chunk
     }
   }
   return { gen, abort: (err) => { aborted = err } }
 }
 
-function settings() {
-  return { total: Number($('totalMb').value) * MB, rate: Number($('rateMbs').value) * MB }
-}
-
-// ---- A. service worker -------------------------------------------------
+// ---- service worker ----------------------------------------------------
 let swReady = null
 if (swSupported) {
   swReady = (async () => {
@@ -150,85 +204,262 @@ async function ensureSw() {
   return swReady
 }
 
+// Shared engine: streams `total` bytes through the service worker to a
+// download, and reports progress and completion to the caller.
+async function startSwRun(opts) {
+  const controller = await ensureSw()
+  const id = Math.random().toString(36).slice(2)
+  const announced = opts.total
+  const produce = opts.shortClose ? Math.floor(opts.total / 2) : opts.total
+  const g = makeGenerator(produce, opts.rate, opts.onProgress)
+  const it = g.gen()
+  let keepaliveTimer = null
+  const done = (msg, ok) => {
+    if (keepaliveTimer) { clearInterval(keepaliveTimer); keepaliveTimer = null }
+    opts.onFinish(msg, ok)
+  }
+  const stream = new ReadableStream({
+    async pull(c) {
+      try {
+        const { value, done: fin } = await it.next()
+        if (fin) { c.close(); done(opts.shortClose ? 'done, stream closed early at half of the announced length' : 'done, stream closed', true) }
+        else c.enqueue(value)
+      } catch (e) {
+        c.error(e); done('errored: ' + e.message, false)
+      }
+    },
+    cancel(reason) { g.abort(new Error('cancelled: ' + reason)); done('cancelled by the browser', false) }
+  })
+  const registered = new Promise((resolve) => {
+    const onMsg = (e) => { if (e.data && e.data.type === 'registered' && e.data.id === id) { navigator.serviceWorker.removeEventListener('message', onMsg); resolve() } }
+    navigator.serviceWorker.addEventListener('message', onMsg)
+  })
+  let path = 'transferred stream'
+  if (opts.useTransferable && transferable) {
+    controller.postMessage({ type: 'register', id, name: opts.name, size: announced, stream }, [stream])
+  } else {
+    path = 'MessageChannel'
+    const mc = new MessageChannel()
+    const reader = stream.getReader()
+    mc.port1.onmessage = async (e) => {
+      const t = e.data && e.data.type
+      if (t === 'pull') {
+        try {
+          const { value, done: fin } = await reader.read()
+          if (fin) mc.port1.postMessage({ type: 'close' })
+          else mc.port1.postMessage({ type: 'chunk', chunk: value.buffer }, [value.buffer])
+        } catch (err) {
+          mc.port1.postMessage({ type: 'error', message: err.message })
+        }
+      } else if (t === 'cancel') {
+        reader.cancel('cancelled by worker')
+      }
+    }
+    controller.postMessage({ type: 'register', id, name: opts.name, size: announced, port: mc.port2 }, [mc.port2])
+  }
+  await registered
+  const url = new URL('zipdl/' + id + '/' + opts.name, location.href).href
+  if (opts.keepalive) {
+    keepaliveTimer = setInterval(() => { fetch(new URL('zipdl/' + id + '/keepalive', location.href).href, { cache: 'no-store' }).catch(() => {}) }, 4000)
+  }
+  $('dl').src = url
+  return { abort: () => g.abort(new Error('aborted by user')), path }
+}
+
+// ---- the one-button check ----------------------------------------------
+const params = new URLSearchParams(location.search)
+const CHECK_TOTAL = (Number(params.get('totalMb')) || 4096) * MB
+const CHECK_RATE = (Number(params.get('rateMbs')) || 50) * MB
+const STATE_KEY = 'spike.run'
+
+function saveState(patch) {
+  const prev = JSON.parse(localStorage.getItem(STATE_KEY) || '{}')
+  localStorage.setItem(STATE_KEY, JSON.stringify(Object.assign(prev, patch)))
+}
+function clearState() { localStorage.removeItem(STATE_KEY) }
+
+;(function showPreviousCrash() {
+  let st = null
+  try { st = JSON.parse(localStorage.getItem(STATE_KEY) || 'null') } catch (e) { st = null }
+  if (!st || st.phase !== 'running') return
+  $('crashBanner').hidden = false
+  $('crashDetail').innerHTML =
+    'It stopped after <strong>' + fmt(st.bytes || 0) + '</strong> of ' + fmt(st.total || 0) + '. ' +
+    'If you did not close the tab yourself, the browser ran out of memory, which means it was holding the file in RAM rather than writing it to disk as it went.'
+  clearState()
+})()
+$('dismissCrash').onclick = () => { $('crashBanner').hidden = true }
+
+let checkResult = null
+let askAnswered = false
+
+$('run').onclick = async () => {
+  $('run').disabled = true
+  $('live').hidden = false
+  $('verdict').hidden = true
+  $('ask').hidden = true
+  askAnswered = false
+  peakHeap = 0
+  $('liveTotal').textContent = fmt(CHECK_TOTAL)
+  const started = performance.now()
+  let lastBytes = 0
+  let stalled = false
+  let lastTick = performance.now()
+  const watchdog = setInterval(() => {
+    if (lastBytes > 0 && performance.now() - lastTick > 15000) stalled = true
+  }, 2000)
+
+  saveState({ phase: 'running', bytes: 0, total: CHECK_TOTAL, ua: navigator.userAgent })
+
+  const onProgress = (bytes, ms) => {
+    lastBytes = bytes
+    lastTick = performance.now()
+    $('liveBytes').textContent = fmt(bytes)
+    $('livePct').textContent = '(' + ((bytes / CHECK_TOTAL) * 100).toFixed(0) + '%)'
+    $('liveElapsed').textContent = (ms / 1000).toFixed(0) + ' s'
+    $('liveRate').textContent = (bytes / MB / (ms / 1000)).toFixed(0) + ' MB/s'
+    if (bytes % (256 * MB) < MB) saveState({ bytes })
+    if (!askAnswered && $('ask').hidden && ms > 3000 && bytes < CHECK_TOTAL * 0.9) $('ask').hidden = false
+  }
+
+  const onFinish = (msg, ok) => {
+    clearInterval(watchdog)
+    clearState()
+    $('liveStatus').textContent = msg
+    $('liveStatus').className = ok ? 'sub ok' : 'sub bad'
+    $('ask').hidden = true
+    $('run').disabled = false
+    finishVerdict({
+      completed: ok,
+      message: msg,
+      bytes: lastBytes,
+      seconds: (performance.now() - started) / 1000,
+      stalled
+    })
+  }
+
+  try {
+    const run = await startSwRun({
+      total: CHECK_TOTAL,
+      rate: CHECK_RATE,
+      name: 'check.bin',
+      shortClose: false,
+      useTransferable: transferable,
+      keepalive: true,
+      onProgress,
+      onFinish
+    })
+    $('liveStatus').textContent = 'streaming through the service worker (' + run.path + ')'
+  } catch (e) {
+    clearInterval(watchdog)
+    clearState()
+    $('liveStatus').textContent = 'could not start: ' + e.message
+    $('liveStatus').className = 'sub bad'
+    $('run').disabled = false
+    finishVerdict({ completed: false, message: 'could not start: ' + e.message, bytes: 0, seconds: 0, stalled: false })
+  }
+}
+
+$('askYes').onclick = () => { askAnswered = true; checkResult = 'growing'; $('ask').hidden = true }
+$('askNo').onclick = () => { askAnswered = true; checkResult = 'not listed'; $('ask').hidden = true }
+
+function finishVerdict(run) {
+  const caps = [
+    'sw=' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'controlled' : 'no'),
+    'transferable=' + transferable,
+    'opfs=' + (!opfsSupported ? 'no' : writableSupported ? 'createWritable' : 'syncAccessHandle')
+  ].join(' ')
+
+  let text
+  if (!run.completed) {
+    text = '<strong class="bad">The run did not finish.</strong> ' + run.message +
+      ' If the tab froze or reloaded on its own, the browser was buffering in memory.'
+  } else if (checkResult === 'growing') {
+    text = '<strong class="ok">It streams to disk.</strong> The file was on disk and growing while the page was still generating, so this browser does not need a size cap on the service worker path.'
+  } else if (checkResult === 'not listed') {
+    text = '<strong class="bad">It buffers in memory.</strong> Nothing reached the download list until the end, so this browser needs a size cap even though the service worker works.'
+  } else {
+    text = '<strong class="warn">Finished, but you did not answer the download-list question.</strong> ' +
+      'The run completing at ' + fmt(run.bytes) + ' without the tab dying is a good sign, but only the download list proves it went to disk as it went.'
+  }
+  if (run.stalled) text += ' Generation stalled for more than 15 s at one point, which usually means the browser stopped pulling.'
+
+  $('verdictText').innerHTML = text
+  const line = [
+    'spike=' + location.host,
+    'ua=' + navigator.userAgent,
+    caps,
+    'bytes=' + run.bytes,
+    'expected=' + CHECK_TOTAL,
+    'seconds=' + run.seconds.toFixed(0),
+    'completed=' + run.completed,
+    'downloadList=' + (checkResult || 'unanswered'),
+    'stalled=' + run.stalled,
+    'peakJsHeap=' + (peakHeap ? peakHeap : 'n/a'),
+    'note=' + run.message
+  ].join('\n')
+  $('resultLine').textContent = line
+  $('verdict').hidden = false
+}
+
+$('copy').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($('resultLine').textContent)
+    $('copy').textContent = 'Copied'
+    setTimeout(() => { $('copy').textContent = 'Copy result' }, 2000)
+  } catch (e) {
+    const r = document.createRange()
+    r.selectNodeContents($('resultLine'))
+    const sel = getSelection()
+    sel.removeAllRanges()
+    sel.addRange(r)
+  }
+}
+
+// ---- advanced: A. service worker ---------------------------------------
 let swAbort = null
-let keepaliveTimer = null
 $('startSw').onclick = async () => {
   try {
-    const { total, rate } = settings()
-    const controller = await ensureSw()
+    const total = Number($('totalMb').value) * MB
+    const rate = Number($('rateMbs').value) * MB
     $('startSw').disabled = true
     $('abortSw').disabled = false
-    const id = Math.random().toString(36).slice(2)
-    const shortClose = $('shortClose').checked
-    const g = makeGenerator(shortClose ? Math.floor(total / 2) : total, rate, (bytes, ms) => {
-      $('swBytes').textContent = fmt(bytes) + ' (' + bytes + ')'
-      $('swElapsed').textContent = (ms / 1000).toFixed(0) + ' s'
-    })
-    swAbort = () => g.abort(new Error('aborted by user'))
-    const it = g.gen()
-    const stream = new ReadableStream({
-      async pull(c) {
-        try {
-          const { value, done } = await it.next()
-          if (done) { c.close(); finish(shortClose ? 'done, stream closed early at half of the announced length' : 'done, stream closed') } else c.enqueue(value)
-        } catch (e) {
-          c.error(e); finish('errored: ' + e.message)
-        }
+    const run = await startSwRun({
+      total,
+      rate,
+      name: 'test.bin',
+      shortClose: $('shortClose').checked,
+      useTransferable: $('transferable').checked,
+      keepalive: $('keepalive').checked,
+      onProgress: (bytes, ms) => {
+        $('swBytes').textContent = fmt(bytes) + ' (' + bytes + ')'
+        $('swElapsed').textContent = (ms / 1000).toFixed(0) + ' s'
       },
-      cancel(reason) { g.abort(new Error('cancelled by browser: ' + reason)); finish('cancelled by the browser') }
-    })
-    const registered = new Promise((resolve) => {
-      const onMsg = (e) => { if (e.data && e.data.type === 'registered' && e.data.id === id) { navigator.serviceWorker.removeEventListener('message', onMsg); resolve() } }
-      navigator.serviceWorker.addEventListener('message', onMsg)
-    })
-    if ($('transferable').checked && transferable) {
-      controller.postMessage({ type: 'register', id, name: 'test.bin', size: total, stream }, [stream])
-    } else {
-      const mc = new MessageChannel()
-      const reader = stream.getReader()
-      mc.port1.onmessage = async (e) => {
-        const t = e.data && e.data.type
-        if (t === 'pull') {
-          try {
-            const { value, done } = await reader.read()
-            if (done) mc.port1.postMessage({ type: 'close' })
-            else mc.port1.postMessage({ type: 'chunk', chunk: value.buffer }, [value.buffer])
-          } catch (err) {
-            mc.port1.postMessage({ type: 'error', message: err.message })
-          }
-        } else if (t === 'cancel') {
-          reader.cancel('cancelled by worker')
-        }
+      onFinish: (msg) => {
+        $('swStatus').textContent = msg
+        $('startSw').disabled = false
+        $('abortSw').disabled = true
       }
-      controller.postMessage({ type: 'register', id, name: 'test.bin', size: total, port: mc.port2 }, [mc.port2])
-    }
-    await registered
-    const url = new URL('zipdl/' + id + '/test.bin', location.href).href
-    if ($('keepalive').checked) {
-      keepaliveTimer = setInterval(() => { fetch(new URL('zipdl/' + id + '/keepalive', location.href).href, { cache: 'no-store' }).catch(() => {}) }, 10000)
-    }
-    $('swStatus').textContent = 'download started via iframe: ' + url
-    $('dl').src = url
+    })
+    swAbort = run.abort
+    $('swStatus').textContent = 'download started via iframe (' + run.path + ')'
   } catch (e) {
     $('swStatus').textContent = 'failed to start: ' + e.message
     $('swStatus').className = 'bad'
+    $('startSw').disabled = false
+    $('abortSw').disabled = true
   }
-}
-function finish(msg) {
-  $('swStatus').textContent = msg
-  $('startSw').disabled = false
-  $('abortSw').disabled = true
-  if (keepaliveTimer) { clearInterval(keepaliveTimer); keepaliveTimer = null }
 }
 $('abortSw').onclick = () => { if (swAbort) swAbort() }
 
-// ---- B. OPFS spool -----------------------------------------------------
+// ---- advanced: B. OPFS spool -------------------------------------------
 let opfsAbort = null
 $('startOpfs').onclick = async () => {
   if (!opfsSupported) return
   $('startOpfs').disabled = true
   $('abortOpfs').disabled = false
-  const { total, rate } = settings()
+  const total = Number($('totalMb').value) * MB
+  const rate = Number($('rateMbs').value) * MB
   try {
     const root = await navigator.storage.getDirectory()
     const handle = await root.getFileHandle('spool.bin', { create: true })

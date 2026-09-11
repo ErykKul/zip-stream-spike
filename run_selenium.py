@@ -44,6 +44,7 @@ def text(id_):
     except Exception: return '?'
 
 driver.get(base)
+driver.execute_script("const d = document.getElementById('advanced'); if (d) d.open = true")
 for _ in range(60):
     if re.search(r'controlled|failed|no \(', text('swAvail')): break
     time.sleep(0.5)
