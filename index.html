@@ -40,11 +40,23 @@
   <button id="dismissCrash">Dismiss</button>
 </div>
 
-<button id="run">Run the check</button>
+<div class="card" id="picker">
+  <p><strong>How much memory does this machine have?</strong> Pick the closest size.</p>
+  <div>
+    <button class="ram" data-gb="8">8 GB</button>
+    <button class="ram" data-gb="16">16 GB</button>
+    <button class="ram" data-gb="32">32 GB</button>
+    <button class="ram" data-gb="64">64 GB</button>
+    <button class="ram" data-gb="128">128 GB</button>
+  </div>
+  <p class="sub">The check then downloads <strong>more than that</strong> and hashes it on the way past. A browser holding the file in memory could not finish, so completing it is the proof. Make sure the disk has room, and delete <code>check.bin</code> afterwards.</p>
+  <p class="sub"><button id="runQuick">Quick 4 GB check</button> exercises the plumbing but says nothing about memory.</p>
+</div>
 
 <div id="live" class="card" hidden>
   <div class="counter"><span id="liveBytes">0 MB</span> <span class="sub" id="livePct"></span></div>
   <div class="sub"><span id="liveElapsed">0 s</span> elapsed, <span id="liveRate">0 MB/s</span>, target <span id="liveTotal"></span></div>
+  <div class="sub" id="liveHash">hashing: waiting</div>
   <div class="sub" id="liveStatus">starting</div>
 </div>
 
@@ -151,7 +163,7 @@ if (performance.memory) {
 
 // Generates `total` bytes at `rate` bytes per second (rate 0 = as fast as the
 // consumer pulls), in 1 MB chunks copied from one prebuilt pattern buffer.
-function makeGenerator(total, rate, onProgress) {
+function makeGenerator(total, rate, onProgress, onChunk) {
   const chunkSize = 1024 * 1024
   const pattern = new Uint8Array(chunkSize)
   for (let i = 0; i < chunkSize; i += 4) {
@@ -167,6 +179,7 @@ function makeGenerator(total, rate, onProgress) {
       const n = Math.min(chunkSize, total - produced)
       const chunk = pattern.slice(0, n)
       produced += n
+      if (onChunk) onChunk(chunk)
       onProgress(produced, performance.now() - started)
       if (rate > 0) {
         const expected = (produced / rate) * 1000
@@ -210,7 +223,7 @@ async function startSwRun(opts) {
   const id = Math.random().toString(36).slice(2)
   const announced = opts.total
   const produce = opts.shortClose ? Math.floor(opts.total / 2) : opts.total
-  const g = makeGenerator(produce, opts.rate, opts.onProgress)
+  const g = makeGenerator(produce, opts.rate, opts.onProgress, opts.onChunk)
   const it = g.gen()
   let keepaliveTimer = null
   const done = (msg, ok) => {
@@ -267,9 +280,25 @@ async function startSwRun(opts) {
 
 // ---- the one-button check ----------------------------------------------
 const params = new URLSearchParams(location.search)
-const CHECK_TOTAL = (Number(params.get('totalMb')) || 4096) * MB
-const CHECK_RATE = (Number(params.get('rateMbs')) || 50) * MB
 const STATE_KEY = 'spike.run'
+let CHECK_TOTAL = (Number(params.get('totalMb')) || 4096) * MB
+let CHECK_RATE = (Number(params.get('rateMbs')) || 50) * MB
+let ramGb = 0
+
+let sha256 = null
+let bytesToHex = null
+const hashReady = (async () => {
+  try {
+    const [m, u] = await Promise.all([
+      import('./vendor/noble-hashes/sha2.js'),
+      import('./vendor/noble-hashes/utils.js')
+    ])
+    sha256 = m.sha256
+    bytesToHex = u.bytesToHex
+  } catch (e) {
+    sha256 = null
+  }
+})()
 
 function saveState(patch) {
   const prev = JSON.parse(localStorage.getItem(STATE_KEY) || '{}')
@@ -292,14 +321,18 @@ $('dismissCrash').onclick = () => { $('crashBanner').hidden = true }
 let checkResult = null
 let askAnswered = false
 
-$('run').onclick = async () => {
-  $('run').disabled = true
+async function runCheck() {
+  document.querySelectorAll('button.ram').forEach((b) => { b.disabled = true })
+  $('runQuick').disabled = true
   $('live').hidden = false
   $('verdict').hidden = true
   $('ask').hidden = true
   askAnswered = false
   peakHeap = 0
   $('liveTotal').textContent = fmt(CHECK_TOTAL)
+  await hashReady
+  const hasher = sha256 ? sha256.create() : null
+  $('liveHash').textContent = hasher ? 'hashing SHA-256 as it streams' : 'hashing unavailable in this browser'
   const started = performance.now()
   let lastBytes = 0
   let stalled = false
@@ -313,6 +346,7 @@ $('run').onclick = async () => {
   const onProgress = (bytes, ms) => {
     lastBytes = bytes
     lastTick = performance.now()
+    if (hasher) $('liveHash').textContent = 'hashing SHA-256 as it streams, ' + fmt(bytes) + ' hashed'
     $('liveBytes').textContent = fmt(bytes)
     $('livePct').textContent = '(' + ((bytes / CHECK_TOTAL) * 100).toFixed(0) + '%)'
     $('liveElapsed').textContent = (ms / 1000).toFixed(0) + ' s'
@@ -327,13 +361,20 @@ $('run').onclick = async () => {
     $('liveStatus').textContent = msg
     $('liveStatus').className = ok ? 'sub ok' : 'sub bad'
     $('ask').hidden = true
-    $('run').disabled = false
+    document.querySelectorAll('button.ram').forEach((b) => { b.disabled = false })
+    $('runQuick').disabled = false
+    let digest = null
+    if (hasher && ok) {
+      digest = bytesToHex(hasher.digest())
+      $('liveHash').textContent = 'SHA-256 of the ' + fmt(lastBytes) + ' streamed: ' + digest
+    }
     finishVerdict({
       completed: ok,
       message: msg,
       bytes: lastBytes,
       seconds: (performance.now() - started) / 1000,
-      stalled
+      stalled,
+      digest
     })
   }
 
@@ -345,6 +386,7 @@ $('run').onclick = async () => {
       shortClose: false,
       useTransferable: transferable,
       keepalive: true,
+      onChunk: hasher ? (chunk) => { hasher.update(chunk) } : null,
       onProgress,
       onFinish
     })
@@ -354,9 +396,25 @@ $('run').onclick = async () => {
     clearState()
     $('liveStatus').textContent = 'could not start: ' + e.message
     $('liveStatus').className = 'sub bad'
-    $('run').disabled = false
-    finishVerdict({ completed: false, message: 'could not start: ' + e.message, bytes: 0, seconds: 0, stalled: false })
+    document.querySelectorAll('button.ram').forEach((b) => { b.disabled = false })
+    $('runQuick').disabled = false
+    finishVerdict({ completed: false, message: 'could not start: ' + e.message, bytes: 0, seconds: 0, stalled: false, digest: null })
   }
+}
+
+document.querySelectorAll('button.ram').forEach((b) => {
+  b.onclick = () => {
+    ramGb = Number(b.dataset.gb)
+    CHECK_TOTAL = Math.round(ramGb * 1.25) * 1024 * MB
+    CHECK_RATE = 0
+    void runCheck()
+  }
+})
+$('runQuick').onclick = () => {
+  ramGb = 0
+  CHECK_TOTAL = (Number(params.get('totalMb')) || 4096) * MB
+  CHECK_RATE = (Number(params.get('rateMbs')) || 50) * MB
+  void runCheck()
 }
 
 $('askFlat').onclick = () => { askAnswered = true; checkResult = 'flat'; $('ask').hidden = true }
@@ -399,19 +457,30 @@ function finishVerdict(run) {
       'Completing ' + fmt(run.bytes) + ' without the tab dying is a good sign on its own, since buffering that much would normally kill it, but the memory reading is what settles it.'
   }
   if (run.stalled) text += ' Generation stalled for more than 15 s at one point, which usually means the browser stopped pulling.'
+  if (run.completed && ramGb && run.bytes > ramGb * 1024 * MB) {
+    text += ' <strong>' + fmt(run.bytes) + ' went through on a machine with ' + ramGb +
+      ' GB of memory, so it cannot have been held in RAM.</strong>'
+  }
+  if (run.digest) {
+    const cmd = /Mac/.test(navigator.platform || '') ? 'shasum -a 256' : 'sha256sum'
+    text += '<p>Check the saved file matches what was streamed:<br><code>' + cmd +
+      ' ~/Downloads/check.bin</code><br>should print <code>' + run.digest + '</code></p>'
+  }
 
   $('verdictText').innerHTML = text
   const line = [
     'spike=' + location.host,
     'ua=' + navigator.userAgent,
     caps,
+    'ramGb=' + (ramGb || 'not given'),
     'bytes=' + run.bytes,
     'expected=' + CHECK_TOTAL,
     'seconds=' + run.seconds.toFixed(0),
+    'mbPerSecond=' + (run.seconds ? (run.bytes / MB / run.seconds).toFixed(0) : '0'),
     'completed=' + run.completed,
     'memory=' + (checkResult || 'unanswered'),
     'stalled=' + run.stalled,
-    'peakJsHeap=' + (peakHeap ? peakHeap : 'n/a'),
+    'sha256=' + (run.digest || 'n/a'),
     'note=' + run.message
   ].join('\n')
   $('resultLine').textContent = line

@@ -5,25 +5,36 @@ IQSS/dataverse-frontend#898. Hosted at <https://erykkul.github.io/zip-stream-spi
 
 ## Running the check
 
-Open the page and press **Run the check**. It streams 4 GB through a service
-worker to your Downloads folder at 50 MB/s, so it takes about 80 seconds.
-After a few seconds the page tells you where to read this browser's memory
-(Activity Monitor on macOS, the browser's own task manager on Chromium) and
-asks whether that number stays flat or climbs along with the counter. That
-answer is the whole test: flat memory while gigabytes go past means the bytes
-were handed to disk as they arrived. Press **Copy result** at the end and send
-the block back.
+Press the button for this machine's memory: 8, 16, 32, 64 or 128 GB. The page
+then streams **1.25x that much** through a service worker to your Downloads
+folder, hashing it with SHA-256 as it goes, and shows a live counter.
 
-Do not use the file size in the download list. Browsers pre-allocate the file
-to its full announced `Content-Length`, and some do not refresh the panel while
-it is open, so that number proves nothing either way.
+That size is the point. A browser that held the file in memory could not finish
+a download larger than the machine's RAM, so completing it is the proof, and it
+is proof that survives the hashing too, since a hash that needed the whole file
+buffered would fail for the same reason. At the end the page prints the SHA-256
+of what it streamed along with the command to check the saved file, so you can
+confirm the bytes on disk are the bytes that went through.
 
-Two things are recorded without you having to do anything. If the tab dies
-mid-run, reopening the page reports how far it got, which is itself the answer:
-running out of memory means it was not streaming. And if the browser stops
-pulling for more than 15 seconds, the result says so.
+While it runs, the page also asks you to read the browser's memory in Activity
+Monitor (macOS) or the browser's own task manager (Chromium) and answer with one
+of three buttons. Press **Copy result** at the end and send the block back.
 
-`?totalMb=512&rateMbs=50` overrides the size and rate for a quicker run.
+**Quick 4 GB check** exercises the plumbing without proving anything about
+memory. `?totalMb=512&rateMbs=50` overrides its size and rate.
+
+Two things are recorded without you doing anything. If the tab dies mid-run,
+reopening the page reports how far it got, which is itself the answer. And if
+the browser stops pulling for more than 15 seconds, the result says so.
+
+Do not use the file size in the download list. Browsers pre-allocate the file to
+its full announced `Content-Length`, and some do not refresh the panel while it
+is open, so that number proves nothing either way.
+
+`vendor/noble-hashes/` is a copy of the SHA-2 modules from
+[@noble/hashes](https://github.com/paulmillr/noble-hashes) 2.4.0, the same
+library the frontend uses, so the page hashes incrementally exactly as the real
+implementation does.
 
 Everything else lives under **Advanced**, collapsed by default:
 
