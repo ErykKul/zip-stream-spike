@@ -1,0 +1,668 @@
+{
+  "schema": 2,
+  "page": "https://erykkul.github.io/zip-stream-spike/",
+  "startedAt": "2026-09-14T14:29:24.815Z",
+  "frontendCommit": "61c6b12451f369efe22cef58a99a24d6b2ded85f",
+  "engineBuildId": "87b57ddca34b6944",
+  "frontendMechanismId": "37059c310dcca21e",
+  "libraries": {
+    "@noble/hashes": "2.4.0",
+    "client-zip": "2.5.0",
+    "js-md5": "0.8.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "scheduler": "0.23.2",
+    "esbuild": "0.25.10"
+  },
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+  "platform": "Linux x86_64",
+  "browserBrands": [
+    {
+      "brand": "Microsoft Edge",
+      "version": "153"
+    },
+    {
+      "brand": "Not_A Brand",
+      "version": "8"
+    },
+    {
+      "brand": "Chromium",
+      "version": "153"
+    }
+  ],
+  "ramGiB": 32,
+  "targetPayloadBytes": 37580963840,
+  "testOptions": {
+    "bytes": 37580963840,
+    "ramGiB": 32,
+    "scenario": "complete",
+    "suite": true
+  },
+  "diagnostic": true,
+  "scenario": {
+    "id": "complete",
+    "title": "Complete browser ZIP test",
+    "bytes": 37580963840,
+    "payloadFromSelection": true,
+    "minDurationMs": 720000,
+    "expectedDurationMs": 720000,
+    "maxDurationMs": 2700000,
+    "description": "The selected payload, simulated failures and automatic Retry, a 45-second quiet interval, and at least 12 minutes of stream lifetime. Source generation stops after 45 minutes if unfinished.",
+    "startedAt": "2026-09-14T14:29:25.907Z",
+    "elapsedMs": 720026,
+    "phase": "complete",
+    "detail": "The source completed. Verify the saved ZIP to check recovery and integrity.",
+    "outcome": "source-complete",
+    "timedOut": false,
+    "pendingWaitMs": 0,
+    "sourceRequestCount": 3586,
+    "lastRequest": {
+      "fileIndex": 6,
+      "from": 5358223360,
+      "to": 5368709119,
+      "range": "bytes=5358223360-5368709119"
+    },
+    "sourceRequestSampling": "First 12 and every 256th request; faults and the resumed request are always recorded.",
+    "events": [
+      {
+        "type": "scenario-start",
+        "at": "2026-09-14T14:29:25.907Z",
+        "elapsedMs": 0
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:29:25.907Z",
+        "elapsedMs": 0,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "engine-state",
+        "at": "2026-09-14T14:29:25.908Z",
+        "elapsedMs": 1,
+        "status": "preparing",
+        "bytesDone": 0
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:29:25.911Z",
+        "elapsedMs": 4,
+        "fileIndex": 0,
+        "from": 0,
+        "to": 10485759,
+        "range": "bytes=0-10485759",
+        "requestNumber": 1
+      },
+      {
+        "type": "http-error",
+        "at": "2026-09-14T14:29:25.911Z",
+        "elapsedMs": 4,
+        "fileIndex": 0,
+        "from": 0,
+        "to": 10485759,
+        "range": "bytes=0-10485759",
+        "status": 503
+      },
+      {
+        "type": "engine-state",
+        "at": "2026-09-14T14:29:25.911Z",
+        "elapsedMs": 4,
+        "status": "running",
+        "bytesDone": 0
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:29:26.411Z",
+        "elapsedMs": 504,
+        "fileIndex": 0,
+        "from": 0,
+        "to": 10485759,
+        "range": "bytes=0-10485759",
+        "requestNumber": 2
+      },
+      {
+        "type": "body-error",
+        "at": "2026-09-14T14:29:26.457Z",
+        "elapsedMs": 550,
+        "fileIndex": 0,
+        "offset": 3145728
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:29:26.958Z",
+        "elapsedMs": 1051,
+        "fileIndex": 0,
+        "from": 3145728,
+        "to": 13631487,
+        "range": "bytes=3145728-13631487",
+        "requestNumber": 3
+      },
+      {
+        "type": "resumed-request",
+        "at": "2026-09-14T14:29:26.959Z",
+        "elapsedMs": 1052,
+        "fileIndex": 0,
+        "from": 3145728,
+        "to": 13631487,
+        "range": "bytes=3145728-13631487",
+        "expectedFrom": 3145728,
+        "matched": true
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:29:27.108Z",
+        "elapsedMs": 1201,
+        "fileIndex": 0,
+        "from": 13631488,
+        "to": 24117247,
+        "range": "bytes=13631488-24117247",
+        "requestNumber": 4
+      },
+      {
+        "type": "source-silence-start",
+        "at": "2026-09-14T14:29:27.151Z",
+        "elapsedMs": 1244,
+        "fileIndex": 0,
+        "offset": 16777216,
+        "durationMs": 45000
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:29:27.957Z",
+        "elapsedMs": 2050,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:29:40.784Z",
+        "elapsedMs": 14877,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:29:48.874Z",
+        "elapsedMs": 22967,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:29:53.162Z",
+        "elapsedMs": 27255,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "source-silence-end",
+        "at": "2026-09-14T14:30:12.152Z",
+        "elapsedMs": 46245,
+        "fileIndex": 0,
+        "offset": 16777216,
+        "actualDurationMs": 45001
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:30:12.253Z",
+        "elapsedMs": 46346,
+        "fileIndex": 0,
+        "from": 24117248,
+        "to": 34603007,
+        "range": "bytes=24117248-34603007",
+        "requestNumber": 5
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:30:12.398Z",
+        "elapsedMs": 46491,
+        "fileIndex": 0,
+        "from": 34603008,
+        "to": 45088767,
+        "range": "bytes=34603008-45088767",
+        "requestNumber": 6
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:30:12.547Z",
+        "elapsedMs": 46640,
+        "fileIndex": 0,
+        "from": 45088768,
+        "to": 55574527,
+        "range": "bytes=45088768-55574527",
+        "requestNumber": 7
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:30:12.693Z",
+        "elapsedMs": 46786,
+        "fileIndex": 0,
+        "from": 55574528,
+        "to": 66060287,
+        "range": "bytes=55574528-66060287",
+        "requestNumber": 8
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:30:12.835Z",
+        "elapsedMs": 46928,
+        "fileIndex": 0,
+        "from": 66060288,
+        "to": 76546047,
+        "range": "bytes=66060288-76546047",
+        "requestNumber": 9
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:30:12.981Z",
+        "elapsedMs": 47074,
+        "fileIndex": 0,
+        "from": 76546048,
+        "to": 87031807,
+        "range": "bytes=76546048-87031807",
+        "requestNumber": 10
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:30:13.122Z",
+        "elapsedMs": 47215,
+        "fileIndex": 0,
+        "from": 87031808,
+        "to": 97517567,
+        "range": "bytes=87031808-97517567",
+        "requestNumber": 11
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:30:13.263Z",
+        "elapsedMs": 47356,
+        "fileIndex": 0,
+        "from": 97517568,
+        "to": 108003327,
+        "range": "bytes=97517568-108003327",
+        "requestNumber": 12
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:30:15.083Z",
+        "elapsedMs": 49176,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:30:28.856Z",
+        "elapsedMs": 62949,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:30:31.943Z",
+        "elapsedMs": 66036,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:30:49.733Z",
+        "elapsedMs": 83826,
+        "fileIndex": 0,
+        "from": 2656043008,
+        "to": 2666528767,
+        "range": "bytes=2656043008-2666528767",
+        "requestNumber": 256
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:31:27.211Z",
+        "elapsedMs": 121304,
+        "fileIndex": 0,
+        "from": 5340397568,
+        "to": 5350883327,
+        "range": "bytes=5340397568-5350883327",
+        "requestNumber": 512
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:32:05.674Z",
+        "elapsedMs": 159767,
+        "fileIndex": 1,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 768
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:32:45.521Z",
+        "elapsedMs": 199614,
+        "fileIndex": 1,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 1024
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:33:28.136Z",
+        "elapsedMs": 242229,
+        "fileIndex": 2,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 1280
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:34:11.168Z",
+        "elapsedMs": 285261,
+        "fileIndex": 2,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 1536
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:34:55.022Z",
+        "elapsedMs": 329115,
+        "fileIndex": 3,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 1792
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:35:38.629Z",
+        "elapsedMs": 372722,
+        "fileIndex": 3,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 2048
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:36:23.352Z",
+        "elapsedMs": 417445,
+        "fileIndex": 4,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 2304
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:37:08.448Z",
+        "elapsedMs": 462541,
+        "fileIndex": 4,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 2560
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:37:53.727Z",
+        "elapsedMs": 507820,
+        "fileIndex": 5,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 2816
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:38:39.171Z",
+        "elapsedMs": 553264,
+        "fileIndex": 5,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 3072
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:39:28.878Z",
+        "elapsedMs": 602971,
+        "fileIndex": 6,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 3328
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:40:38.122Z",
+        "elapsedMs": 672215,
+        "fileIndex": 6,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 3584
+      },
+      {
+        "type": "lifetime-hold-start",
+        "at": "2026-09-14T14:40:39.245Z",
+        "elapsedMs": 673338,
+        "fileIndex": 6,
+        "offset": 5368446976,
+        "durationMs": 46663,
+        "minDurationMs": 720000
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:40:40.557Z",
+        "elapsedMs": 674650,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "lifetime-hold-end",
+        "at": "2026-09-14T14:41:25.909Z",
+        "elapsedMs": 720002,
+        "fileIndex": 6,
+        "offset": 5368446976,
+        "actualDurationMs": 46664,
+        "minDurationMs": 720000
+      },
+      {
+        "type": "scenario-finished",
+        "at": "2026-09-14T14:41:25.932Z",
+        "elapsedMs": 720025,
+        "engineStatus": "done"
+      },
+      {
+        "type": "engine-state",
+        "at": "2026-09-14T14:41:25.933Z",
+        "elapsedMs": 720026,
+        "status": "done",
+        "bytesDone": 37580963840
+      }
+    ]
+  },
+  "suite": {
+    "id": "automatic-browser-check-v2",
+    "phase": "complete",
+    "passed": true,
+    "cancellation": {
+      "passed": true,
+      "result": {
+        "status": "cancelled",
+        "totalFiles": 1,
+        "filesDone": 0,
+        "totalBytes": 67108864,
+        "bytesDone": 3145728,
+        "failedSoFar": [],
+        "verificationFailures": [],
+        "pass": 1,
+        "current": {
+          "name": "part-001-64MiB.bin",
+          "path": "payload/part-001-64MiB.bin",
+          "size": 67108864
+        },
+        "filename": "dataverse-zip-test-64MiB-mu1c9xav-pnp3u1hr918.zip",
+        "transport": "transferable-stream",
+        "diagnostic": true,
+        "generatedBytes": 3145728,
+        "rangeRequests": 1,
+        "expectedPayloadBytes": 67108864,
+        "zipBytes": 67109030,
+        "elapsedMs": 882.8000000007451,
+        "probeConsumer": {
+          "type": "controlled-frame-fetch",
+          "status": "errored",
+          "error": "TypeError: network error"
+        },
+        "scenario": {
+          "id": "cancel",
+          "title": "Cancel a waiting download",
+          "bytes": 67108864,
+          "expectedDurationMs": 60000,
+          "maxDurationMs": 120000,
+          "description": "After 3 MiB, the source waits for 45 seconds. Stop the test or cancel the browser download while it waits.",
+          "startedAt": "2026-09-14T14:29:24.823Z",
+          "elapsedMs": 883,
+          "phase": "stopped",
+          "detail": "The test was cancelled.",
+          "outcome": "cancelled",
+          "timedOut": false,
+          "pendingWaitMs": 0,
+          "sourceRequestCount": 1,
+          "lastRequest": {
+            "fileIndex": 0,
+            "from": 0,
+            "to": 10485759,
+            "range": "bytes=0-10485759"
+          },
+          "sourceRequestSampling": "Every request",
+          "events": [
+            {
+              "type": "scenario-start",
+              "at": "2026-09-14T14:29:24.823Z",
+              "elapsedMs": 0
+            },
+            {
+              "type": "visibility-change",
+              "at": "2026-09-14T14:29:24.823Z",
+              "elapsedMs": 0,
+              "visibilityState": "visible"
+            },
+            {
+              "type": "engine-state",
+              "at": "2026-09-14T14:29:24.823Z",
+              "elapsedMs": 0,
+              "status": "preparing",
+              "bytesDone": 0
+            },
+            {
+              "type": "source-request",
+              "at": "2026-09-14T14:29:24.996Z",
+              "elapsedMs": 173,
+              "fileIndex": 0,
+              "from": 0,
+              "to": 10485759,
+              "range": "bytes=0-10485759",
+              "requestNumber": 1
+            },
+            {
+              "type": "engine-state",
+              "at": "2026-09-14T14:29:25.010Z",
+              "elapsedMs": 187,
+              "status": "running",
+              "bytesDone": 262144
+            },
+            {
+              "type": "source-silence-start",
+              "at": "2026-09-14T14:29:25.204Z",
+              "elapsedMs": 381,
+              "fileIndex": 0,
+              "offset": 3145728,
+              "durationMs": 45000
+            },
+            {
+              "type": "automation-cancel",
+              "at": "2026-09-14T14:29:25.704Z",
+              "elapsedMs": 881
+            },
+            {
+              "type": "frontend-fetch-aborted",
+              "at": "2026-09-14T14:29:25.704Z",
+              "elapsedMs": 881,
+              "fileIndex": 0,
+              "offset": 3145728,
+              "pendingWaitMs": 45000
+            },
+            {
+              "type": "scenario-finished",
+              "at": "2026-09-14T14:29:25.704Z",
+              "elapsedMs": 881,
+              "engineStatus": "cancelled"
+            },
+            {
+              "type": "engine-state",
+              "at": "2026-09-14T14:29:25.705Z",
+              "elapsedMs": 882,
+              "status": "cancelled",
+              "bytesDone": 3145728
+            },
+            {
+              "type": "source-silence-aborted",
+              "at": "2026-09-14T14:29:25.705Z",
+              "elapsedMs": 882,
+              "fileIndex": 0,
+              "offset": 3145728,
+              "actualDurationMs": 502
+            }
+          ]
+        },
+        "nativeDownloadOutcome": "No native download is created by the internal controlled-frame probe. The main ZIP uses the native download sink."
+      }
+    },
+    "notCovered": [
+      "Cancellation using the browser download-manager controls",
+      "Native reload/close warning and the choice to leave or stay",
+      "Real offline/reconnection, Dataverse authentication, CORS, and storage behavior",
+      "OS sleep/wake; background coverage depends on the recorded visibility intervals"
+    ],
+    "checks": {
+      "cancellation": true,
+      "retryAndResume": true,
+      "sourceSilence": true,
+      "streamLifetime": true,
+      "savedZip": true
+    }
+  },
+  "status": "verified",
+  "memoryObservation": "roughly-flat",
+  "verified": true,
+  "limits": "Synthetic local source. Does not test a Dataverse network, login, storage or prove flat total memory.",
+  "engineStatus": "done",
+  "transport": "transferable-stream",
+  "filename": "dataverse-zip-test-35840MiB-mu1c9y4z-0gjvkvzaebj.zip",
+  "downloadElapsedMs": 720025.5,
+  "generatedBytes": 37580963840,
+  "payloadBytesProcessed": 37580963840,
+  "rangeRequests": 3586,
+  "filesDone": 7,
+  "totalFiles": 7,
+  "failedFiles": [],
+  "checksumFailures": [],
+  "jsHeap": {
+    "scope": "JS heap only; excludes other browser processes and disk caches",
+    "firstBytes": 9141196,
+    "peakBytes": 99298649,
+    "lastBytes": 2601179
+  },
+  "finishedAt": "2026-09-14T14:41:25.935Z",
+  "selectedFilename": "dataverse-zip-test-35840MiB-mu1c9y4z-0gjvkvzaebj.zip",
+  "verificationProgress": {
+    "bytesRead": 37580963840,
+    "totalBytes": 37580963840,
+    "elapsedMs": 578544.3000000007,
+    "lastProgressAt": "2026-09-14T14:51:31.900Z"
+  },
+  "verification": {
+    "verified": true,
+    "entries": 7,
+    "payloadBytes": 37580963840,
+    "zipBytes": 37580965226,
+    "zip64": true,
+    "elapsedMs": 578544.3000000007,
+    "checks": "SHA-256 and ZIP CRC-32"
+  },
+  "verifiedAt": "2026-09-14T14:51:31.901Z"
+}

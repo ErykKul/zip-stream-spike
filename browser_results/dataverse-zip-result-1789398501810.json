@@ -1,0 +1,688 @@
+{
+  "schema": 2,
+  "page": "https://erykkul.github.io/zip-stream-spike/",
+  "startedAt": "2026-09-14T14:47:39.609Z",
+  "frontendCommit": "61c6b12451f369efe22cef58a99a24d6b2ded85f",
+  "engineBuildId": "87b57ddca34b6944",
+  "frontendMechanismId": "37059c310dcca21e",
+  "libraries": {
+    "@noble/hashes": "2.4.0",
+    "client-zip": "2.5.0",
+    "js-md5": "0.8.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "scheduler": "0.23.2",
+    "esbuild": "0.25.10"
+  },
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+  "platform": "Linux x86_64",
+  "browserBrands": [
+    {
+      "brand": "Not?A_Brand",
+      "version": "24"
+    },
+    {
+      "brand": "Chromium",
+      "version": "152"
+    }
+  ],
+  "ramGiB": 32,
+  "targetPayloadBytes": 37580963840,
+  "testOptions": {
+    "bytes": 37580963840,
+    "ramGiB": 32,
+    "scenario": "complete",
+    "suite": true
+  },
+  "diagnostic": true,
+  "scenario": {
+    "id": "complete",
+    "title": "Complete browser ZIP test",
+    "bytes": 37580963840,
+    "payloadFromSelection": true,
+    "minDurationMs": 720000,
+    "expectedDurationMs": 720000,
+    "maxDurationMs": 2700000,
+    "description": "The selected payload, simulated failures and automatic Retry, a 45-second quiet interval, and at least 12 minutes of stream lifetime. Source generation stops after 45 minutes if unfinished.",
+    "startedAt": "2026-09-14T14:47:40.560Z",
+    "elapsedMs": 720017,
+    "phase": "complete",
+    "detail": "The source completed. Verify the saved ZIP to check recovery and integrity.",
+    "outcome": "source-complete",
+    "timedOut": false,
+    "pendingWaitMs": 0,
+    "sourceRequestCount": 3586,
+    "lastRequest": {
+      "fileIndex": 6,
+      "from": 5358223360,
+      "to": 5368709119,
+      "range": "bytes=5358223360-5368709119"
+    },
+    "sourceRequestSampling": "First 12 and every 256th request; faults and the resumed request are always recorded.",
+    "events": [
+      {
+        "type": "scenario-start",
+        "at": "2026-09-14T14:47:40.560Z",
+        "elapsedMs": 0
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:47:40.560Z",
+        "elapsedMs": 0,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "engine-state",
+        "at": "2026-09-14T14:47:40.560Z",
+        "elapsedMs": 0,
+        "status": "preparing",
+        "bytesDone": 0
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:47:40.563Z",
+        "elapsedMs": 3,
+        "fileIndex": 0,
+        "from": 0,
+        "to": 10485759,
+        "range": "bytes=0-10485759",
+        "requestNumber": 1
+      },
+      {
+        "type": "http-error",
+        "at": "2026-09-14T14:47:40.563Z",
+        "elapsedMs": 3,
+        "fileIndex": 0,
+        "from": 0,
+        "to": 10485759,
+        "range": "bytes=0-10485759",
+        "status": 503
+      },
+      {
+        "type": "engine-state",
+        "at": "2026-09-14T14:47:40.563Z",
+        "elapsedMs": 3,
+        "status": "running",
+        "bytesDone": 0
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:47:41.063Z",
+        "elapsedMs": 503,
+        "fileIndex": 0,
+        "from": 0,
+        "to": 10485759,
+        "range": "bytes=0-10485759",
+        "requestNumber": 2
+      },
+      {
+        "type": "body-error",
+        "at": "2026-09-14T14:47:41.119Z",
+        "elapsedMs": 559,
+        "fileIndex": 0,
+        "offset": 3145728
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:47:41.621Z",
+        "elapsedMs": 1061,
+        "fileIndex": 0,
+        "from": 3145728,
+        "to": 13631487,
+        "range": "bytes=3145728-13631487",
+        "requestNumber": 3
+      },
+      {
+        "type": "resumed-request",
+        "at": "2026-09-14T14:47:41.621Z",
+        "elapsedMs": 1061,
+        "fileIndex": 0,
+        "from": 3145728,
+        "to": 13631487,
+        "range": "bytes=3145728-13631487",
+        "expectedFrom": 3145728,
+        "matched": true
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:47:41.806Z",
+        "elapsedMs": 1246,
+        "fileIndex": 0,
+        "from": 13631488,
+        "to": 24117247,
+        "range": "bytes=13631488-24117247",
+        "requestNumber": 4
+      },
+      {
+        "type": "source-silence-start",
+        "at": "2026-09-14T14:47:41.859Z",
+        "elapsedMs": 1299,
+        "fileIndex": 0,
+        "offset": 16777216,
+        "durationMs": 45000
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:47:51.719Z",
+        "elapsedMs": 11159,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:48:15.212Z",
+        "elapsedMs": 34652,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:48:17.867Z",
+        "elapsedMs": 37307,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:48:25.547Z",
+        "elapsedMs": 44987,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "source-silence-end",
+        "at": "2026-09-14T14:48:26.859Z",
+        "elapsedMs": 46299,
+        "fileIndex": 0,
+        "offset": 16777216,
+        "actualDurationMs": 45001
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:48:26.981Z",
+        "elapsedMs": 46421,
+        "fileIndex": 0,
+        "from": 24117248,
+        "to": 34603007,
+        "range": "bytes=24117248-34603007",
+        "requestNumber": 5
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:48:27.161Z",
+        "elapsedMs": 46601,
+        "fileIndex": 0,
+        "from": 34603008,
+        "to": 45088767,
+        "range": "bytes=34603008-45088767",
+        "requestNumber": 6
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:48:27.342Z",
+        "elapsedMs": 46782,
+        "fileIndex": 0,
+        "from": 45088768,
+        "to": 55574527,
+        "range": "bytes=45088768-55574527",
+        "requestNumber": 7
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:48:27.517Z",
+        "elapsedMs": 46957,
+        "fileIndex": 0,
+        "from": 55574528,
+        "to": 66060287,
+        "range": "bytes=55574528-66060287",
+        "requestNumber": 8
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:48:27.684Z",
+        "elapsedMs": 47124,
+        "fileIndex": 0,
+        "from": 66060288,
+        "to": 76546047,
+        "range": "bytes=66060288-76546047",
+        "requestNumber": 9
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:48:27.853Z",
+        "elapsedMs": 47293,
+        "fileIndex": 0,
+        "from": 76546048,
+        "to": 87031807,
+        "range": "bytes=76546048-87031807",
+        "requestNumber": 10
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:48:28.025Z",
+        "elapsedMs": 47465,
+        "fileIndex": 0,
+        "from": 87031808,
+        "to": 97517567,
+        "range": "bytes=87031808-97517567",
+        "requestNumber": 11
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:48:28.196Z",
+        "elapsedMs": 47636,
+        "fileIndex": 0,
+        "from": 97517568,
+        "to": 108003327,
+        "range": "bytes=97517568-108003327",
+        "requestNumber": 12
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:48:29.066Z",
+        "elapsedMs": 48506,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:48:46.594Z",
+        "elapsedMs": 66034,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:48:49.970Z",
+        "elapsedMs": 69410,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:49:11.184Z",
+        "elapsedMs": 90624,
+        "fileIndex": 0,
+        "from": 2656043008,
+        "to": 2666528767,
+        "range": "bytes=2656043008-2666528767",
+        "requestNumber": 256
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:49:53.329Z",
+        "elapsedMs": 132769,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:49:56.070Z",
+        "elapsedMs": 135510,
+        "fileIndex": 0,
+        "from": 5340397568,
+        "to": 5350883327,
+        "range": "bytes=5340397568-5350883327",
+        "requestNumber": 512
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:49:56.595Z",
+        "elapsedMs": 136035,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:50:29.968Z",
+        "elapsedMs": 169408,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:50:40.049Z",
+        "elapsedMs": 179489,
+        "visibilityState": "hidden"
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:50:42.544Z",
+        "elapsedMs": 181984,
+        "fileIndex": 1,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 768
+      },
+      {
+        "type": "visibility-change",
+        "at": "2026-09-14T14:50:58.343Z",
+        "elapsedMs": 197783,
+        "visibilityState": "visible"
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:51:29.097Z",
+        "elapsedMs": 228537,
+        "fileIndex": 1,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 1024
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:52:12.619Z",
+        "elapsedMs": 272059,
+        "fileIndex": 2,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 1280
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:52:56.208Z",
+        "elapsedMs": 315648,
+        "fileIndex": 2,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 1536
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:53:38.651Z",
+        "elapsedMs": 358091,
+        "fileIndex": 3,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 1792
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:54:19.361Z",
+        "elapsedMs": 398802,
+        "fileIndex": 3,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 2048
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:55:00.120Z",
+        "elapsedMs": 439560,
+        "fileIndex": 4,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 2304
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:55:42.537Z",
+        "elapsedMs": 481977,
+        "fileIndex": 4,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 2560
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:56:22.969Z",
+        "elapsedMs": 522409,
+        "fileIndex": 5,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 2816
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:57:03.769Z",
+        "elapsedMs": 563209,
+        "fileIndex": 5,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 3072
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:57:45.664Z",
+        "elapsedMs": 605104,
+        "fileIndex": 6,
+        "from": 2652897280,
+        "to": 2663383039,
+        "range": "bytes=2652897280-2663383039",
+        "requestNumber": 3328
+      },
+      {
+        "type": "source-request",
+        "at": "2026-09-14T14:58:28.984Z",
+        "elapsedMs": 648425,
+        "fileIndex": 6,
+        "from": 5337251840,
+        "to": 5347737599,
+        "range": "bytes=5337251840-5347737599",
+        "requestNumber": 3584
+      },
+      {
+        "type": "lifetime-hold-start",
+        "at": "2026-09-14T14:58:29.498Z",
+        "elapsedMs": 648938,
+        "fileIndex": 6,
+        "offset": 5368446976,
+        "durationMs": 71062,
+        "minDurationMs": 720000
+      },
+      {
+        "type": "lifetime-hold-end",
+        "at": "2026-09-14T14:59:40.561Z",
+        "elapsedMs": 720001,
+        "fileIndex": 6,
+        "offset": 5368446976,
+        "actualDurationMs": 71063,
+        "minDurationMs": 720000
+      },
+      {
+        "type": "scenario-finished",
+        "at": "2026-09-14T14:59:40.577Z",
+        "elapsedMs": 720017,
+        "engineStatus": "done"
+      },
+      {
+        "type": "engine-state",
+        "at": "2026-09-14T14:59:40.577Z",
+        "elapsedMs": 720017,
+        "status": "done",
+        "bytesDone": 37580963840
+      }
+    ]
+  },
+  "suite": {
+    "id": "automatic-browser-check-v2",
+    "phase": "complete",
+    "passed": true,
+    "cancellation": {
+      "passed": true,
+      "result": {
+        "status": "cancelled",
+        "totalFiles": 1,
+        "filesDone": 0,
+        "totalBytes": 67108864,
+        "bytesDone": 3145728,
+        "failedSoFar": [],
+        "verificationFailures": [],
+        "pass": 1,
+        "current": {
+          "name": "part-001-64MiB.bin",
+          "path": "payload/part-001-64MiB.bin",
+          "size": 67108864
+        },
+        "filename": "dataverse-zip-test-64MiB-mu1cxe1r-kywb1vgd1i8.zip",
+        "transport": "transferable-stream",
+        "diagnostic": true,
+        "generatedBytes": 3145728,
+        "rangeRequests": 1,
+        "expectedPayloadBytes": 67108864,
+        "zipBytes": 67109030,
+        "elapsedMs": 743.3999999985099,
+        "probeConsumer": {
+          "type": "controlled-frame-fetch",
+          "status": "errored",
+          "error": "TypeError: network error"
+        },
+        "scenario": {
+          "id": "cancel",
+          "title": "Cancel a waiting download",
+          "bytes": 67108864,
+          "expectedDurationMs": 60000,
+          "maxDurationMs": 120000,
+          "description": "After 3 MiB, the source waits for 45 seconds. Stop the test or cancel the browser download while it waits.",
+          "startedAt": "2026-09-14T14:47:39.616Z",
+          "elapsedMs": 743,
+          "phase": "stopped",
+          "detail": "The test was cancelled.",
+          "outcome": "cancelled",
+          "timedOut": false,
+          "pendingWaitMs": 0,
+          "sourceRequestCount": 1,
+          "lastRequest": {
+            "fileIndex": 0,
+            "from": 0,
+            "to": 10485759,
+            "range": "bytes=0-10485759"
+          },
+          "sourceRequestSampling": "Every request",
+          "events": [
+            {
+              "type": "scenario-start",
+              "at": "2026-09-14T14:47:39.616Z",
+              "elapsedMs": 0
+            },
+            {
+              "type": "visibility-change",
+              "at": "2026-09-14T14:47:39.616Z",
+              "elapsedMs": 0,
+              "visibilityState": "visible"
+            },
+            {
+              "type": "engine-state",
+              "at": "2026-09-14T14:47:39.616Z",
+              "elapsedMs": 0,
+              "status": "preparing",
+              "bytesDone": 0
+            },
+            {
+              "type": "source-request",
+              "at": "2026-09-14T14:47:39.630Z",
+              "elapsedMs": 14,
+              "fileIndex": 0,
+              "from": 0,
+              "to": 10485759,
+              "range": "bytes=0-10485759",
+              "requestNumber": 1
+            },
+            {
+              "type": "engine-state",
+              "at": "2026-09-14T14:47:39.643Z",
+              "elapsedMs": 27,
+              "status": "running",
+              "bytesDone": 262144
+            },
+            {
+              "type": "source-silence-start",
+              "at": "2026-09-14T14:47:39.857Z",
+              "elapsedMs": 241,
+              "fileIndex": 0,
+              "offset": 3145728,
+              "durationMs": 45000
+            },
+            {
+              "type": "automation-cancel",
+              "at": "2026-09-14T14:47:40.357Z",
+              "elapsedMs": 741
+            },
+            {
+              "type": "frontend-fetch-aborted",
+              "at": "2026-09-14T14:47:40.358Z",
+              "elapsedMs": 742,
+              "fileIndex": 0,
+              "offset": 3145728,
+              "pendingWaitMs": 45000
+            },
+            {
+              "type": "scenario-finished",
+              "at": "2026-09-14T14:47:40.358Z",
+              "elapsedMs": 742,
+              "engineStatus": "cancelled"
+            },
+            {
+              "type": "engine-state",
+              "at": "2026-09-14T14:47:40.358Z",
+              "elapsedMs": 742,
+              "status": "cancelled",
+              "bytesDone": 3145728
+            },
+            {
+              "type": "source-silence-aborted",
+              "at": "2026-09-14T14:47:40.358Z",
+              "elapsedMs": 742,
+              "fileIndex": 0,
+              "offset": 3145728,
+              "actualDurationMs": 501
+            }
+          ]
+        },
+        "nativeDownloadOutcome": "No native download is created by the internal controlled-frame probe. The main ZIP uses the native download sink."
+      }
+    },
+    "notCovered": [
+      "Cancellation using the browser download-manager controls",
+      "Native reload/close warning and the choice to leave or stay",
+      "Real offline/reconnection, Dataverse authentication, CORS, and storage behavior",
+      "OS sleep/wake; background coverage depends on the recorded visibility intervals"
+    ],
+    "checks": {
+      "cancellation": true,
+      "retryAndResume": true,
+      "sourceSilence": true,
+      "streamLifetime": true,
+      "savedZip": true
+    }
+  },
+  "status": "verified",
+  "memoryObservation": "roughly-flat",
+  "verified": true,
+  "limits": "Synthetic local source. Does not test a Dataverse network, login, storage or prove flat total memory.",
+  "engineStatus": "done",
+  "transport": "transferable-stream",
+  "filename": "dataverse-zip-test-35840MiB-mu1cxerz-jxco3u1wher.zip",
+  "downloadElapsedMs": 720017.8000000007,
+  "generatedBytes": 37580963840,
+  "payloadBytesProcessed": 37580963840,
+  "rangeRequests": 3586,
+  "filesDone": 7,
+  "totalFiles": 7,
+  "failedFiles": [],
+  "checksumFailures": [],
+  "jsHeap": {
+    "scope": "JS heap only; excludes other browser processes and disk caches",
+    "firstBytes": 4688442,
+    "peakBytes": 114427760,
+    "lastBytes": 3792650
+  },
+  "finishedAt": "2026-09-14T14:59:40.578Z",
+  "selectedFilename": "dataverse-zip-test-35840MiB-mu1cxerz-jxco3u1wher.zip",
+  "verificationProgress": {
+    "bytesRead": 37580963840,
+    "totalBytes": 37580963840,
+    "elapsedMs": 497789.30000000075,
+    "lastProgressAt": "2026-09-14T15:08:05.389Z"
+  },
+  "verification": {
+    "verified": true,
+    "entries": 7,
+    "payloadBytes": 37580963840,
+    "zipBytes": 37580965226,
+    "zip64": true,
+    "elapsedMs": 497789.30000000075,
+    "checks": "SHA-256 and ZIP CRC-32"
+  },
+  "verifiedAt": "2026-09-14T15:08:05.390Z"
+}
