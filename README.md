@@ -48,7 +48,11 @@ available. Engine similarity does not replace testing each installed browser.
 An optional memory observation can be added to the result. The page records
 the full user agent, frontend commit, engine build, selected size, transfer path,
 duration, and saved-file verification. Results stay in the browser; they are not
-sent to a server. The latest interrupted run is retained when storage is available.
+sent to a server. The current result uses tab-scoped `sessionStorage` and is
+cleared on reload or when leaving/closing the page. **Copy result** or **Save
+result** before leaving. **Repeat test** starts the same settings again;
+**Start new test** clears the result and returns to the RAM choices. Existing
+downloaded files stay on disk.
 
 ## What counts as a result?
 

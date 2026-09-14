@@ -2,6 +2,14 @@ const $ = (id) => document.getElementById(id)
 const GiB = 1024 ** 3
 const MiB = 1024 ** 2
 const STORAGE_KEY = 'dataverse-zip-check-v2'
+// Remove the result left by earlier versions; current results belong to this tab only.
+try { localStorage.removeItem(STORAGE_KEY) } catch { /* Storage is optional. */ }
+function clearSavedSession() {
+  try { sessionStorage.removeItem(STORAGE_KEY) } catch { /* Storage is optional. */ }
+}
+window.addEventListener('pagehide', clearSavedSession)
+const reloaded = performance.getEntriesByType('navigation')[0]?.type === 'reload'
+if (reloaded) clearSavedSession()
 const activeStatuses = new Set(['checking', 'preparing', 'running', 'paused', 'verifying'])
 let engine
 let result = null
@@ -22,14 +30,14 @@ function duration(ms = 0) {
 }
 function setBusy(value) {
   busy = value
-  document.querySelectorAll('.ram-button, #smoke-test, [data-scenario]').forEach((button) => { button.disabled = value || !engine })
+  document.querySelectorAll('.ram-button, #smoke-test, #repeat-test, #new-test, [data-scenario]').forEach((button) => { button.disabled = value || !engine })
   $('cancel-run').hidden = !value
   $('verify-file').disabled = value || !engine
 }
 function store(force = false) {
   if (!result || (!force && Date.now() - lastStored < 1000)) return
   lastStored = Date.now()
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(result)) } catch { /* Private browsing may disable storage. */ }
+  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(result)) } catch { /* Private browsing may disable storage. */ }
 }
 function sampleHeap() {
   if (!result || !performance.memory) return
@@ -211,6 +219,7 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
     browserBrands: navigator.userAgentData?.brands,
     ramGiB,
     targetPayloadBytes: totalBytes,
+    testOptions: { bytes: totalBytes, ramGiB, scenario, suite, transferStreams },
     diagnostic: scenario || (transferStreams === false ? 'forced-message-channel' : false),
     scenario: scenarioSpec ? { ...scenarioSpec, bytes: totalBytes, phase: 'preparing', elapsedMs: 0, events: [] } : undefined,
     suite: suite ? {
@@ -323,6 +332,22 @@ function startSuite(options = {}) {
   return startRun({ ...options, suite: true, scenario: 'complete' })
 }
 
+function newTest() {
+  if (busy) return
+  ++runId
+  result = null
+  suiteController = null
+  clearSavedSession()
+  for (const id of ['result-panel', 'run-panel', 'verify-panel', 'previous-run']) $(id).hidden = true
+  $('verify-file').value = ''
+  $('result-json').textContent = ''
+  $('copy-status').textContent = ''
+  $('memory-observation').value = 'not-measured'
+  document.querySelectorAll('.ram-button').forEach((button) => button.setAttribute('aria-pressed', 'false'))
+  $('pick-heading').scrollIntoView({ block: 'center' })
+  document.querySelector('.ram-button').focus({ preventScroll: true })
+}
+
 async function verifyFile(file) {
   if (!file || !result || busy) return
   if (file.name.replace(/ \(\d+\)(?=\.zip$)/, '') !== result.filename) {
@@ -417,6 +442,14 @@ document.querySelectorAll('.ram-button').forEach((button) => {
   })
 })
 $('smoke-test').addEventListener('click', () => void startRun({ bytes: 64 * MiB }))
+$('new-test').addEventListener('click', newTest)
+$('repeat-test').addEventListener('click', () => {
+  if (busy || !result) return
+  const options = result.testOptions || { bytes: result.targetPayloadBytes, ramGiB: result.ramGiB,
+    ...(result.transport === 'message-channel' && result.diagnostic === 'forced-message-channel' ? { transferStreams: false } : {}),
+    ...(result.scenario ? { scenario: result.scenario.id } : {}), suite: Boolean(result.suite) }
+  void startRun(options)
+})
 document.querySelectorAll('[data-scenario]').forEach((button) => {
   button.addEventListener('click', () => void startRun({ scenario: button.dataset.scenario }))
 })
@@ -484,7 +517,7 @@ window.addEventListener('beforeunload', (event) => {
   event.returnValue = ''
 })
 try {
-  const previous = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
+  const previous = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null')
   if (previous && activeStatuses.has(previous.status) && previous.status !== 'verifying') {
     result = { ...previous, status: 'interrupted', verified: false }
     $('previous-run').hidden = false
@@ -517,6 +550,14 @@ if (result?.scenario) {
 setBusy(false)
 const ready = (async () => {
   try {
+    if (reloaded) {
+      // Firefox reload can bypass worker interception for descendant requests.
+      // Start the fresh session with normal navigation before creating streams.
+      const fresh = new URL(location.href)
+      fresh.searchParams.set('fresh', String(Date.now()))
+      location.replace(fresh.href)
+      return
+    }
     if ('serviceWorker' in navigator) {
       const legacyUrl = new URL('sw.js', location.href).href
       const registrations = await navigator.serviceWorker.getRegistrations()
