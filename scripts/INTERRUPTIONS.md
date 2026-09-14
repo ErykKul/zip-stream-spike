@@ -110,9 +110,10 @@ previously caught unhandled rejections from client-zip's cancellation adapter;
 the frontend fix was verified by rerunning this targeted test.
 
 The same frontend source with harness build `b247577d88111321` passed the complete
-automatic-transport suite in a genuinely hidden Chromium tab. The stream lived
-for 721 seconds, including an approximately 11-minute final source pause. The
-native 64 MiB archive passed independent ZIP/CRC validation and the page's
-SHA-256/CRC verification. All 714 visibility samples before completion were
-hidden. This is automation evidence with a small payload, not a larger-than-RAM
-or manual-browser result.
+suite on both automatic transferable-stream and forced MessageChannel paths,
+using separate browser profiles. Each stream lived for 721 seconds in a genuinely
+hidden Chromium tab, including an approximately 11-minute final source pause.
+Both native 64 MiB archives passed independent ZIP/CRC validation and the page's
+SHA-256/CRC verification. Each run recorded 714 hidden visibility samples and zero
+visible samples before completion. This is automation evidence with a small
+payload, not a larger-than-RAM or manual-browser result.

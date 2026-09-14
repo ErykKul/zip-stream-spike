@@ -89,11 +89,16 @@ Current engine `b247577d88111321`, exact frontend source
   MessageChannel after the frontend cancellation fixes, without unhandled
   rejections. Plain 64 MiB native download, corruption/truncation rejection,
   verification progress labels and the desktop/mobile layouts passed checks.
-- Firefox 155 passed the revised internal-consumer preflight, automatic Retry,
-  exact 3 MiB resume, 45-second source pause and Stop during the final hold, with
-  one native ZIP created and no automatic restart. A complete long run on the
-  final helper build is still being verified; this prefix is not an integrity
-  pass for an unfinished archive.
+- Forced MessageChannel passed the same complete hidden-tab sequence in a
+  separate Chromium profile: 721,012 ms, all five checks and independent CRC plus
+  saved-file SHA-256/CRC passed, 714 hidden samples and none visible.
+- Firefox 155.0.1 passed the full final sequence in an isolated headless profile:
+  720,019 ms source duration, 64 MiB, all five checks, independent Python CRC and
+  saved-file SHA-256/CRC verification. Page Stop also passed. This is not a
+  Firefox background-tab or larger-than-RAM claim.
+- Live GitHub Pages validation in Firefox confirmed the deployed helper/scope,
+  internal cancellation, automatic Retry and exact resume, 45-second silence,
+  one native ZIP and Stop without restart. No unhandled rejection occurred.
 - Firefox native download-backend checks confirmed Page Stop stops the download.
   Cancel in the download backend stopped the download immediately but reached
   the frontend only after its pending read resumed, about 47.33 seconds in the
