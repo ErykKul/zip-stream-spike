@@ -147,7 +147,29 @@ async function runScenario(browser, base, artifactDirectory, forceMessageChannel
     assert.ok(info.size > bytes, 'Saved archive lacks the expected ZIP headers and payload')
     const zip = checkWithIndependentZipReader(archive)
     console.log(`${label}: independent ZIP integrity passed; verifying saved file in page`)
+    // Change the observation in the same event turn that starts verification,
+    // before a worker response can arrive, to cover the previously false failure.
+    await page.evaluate(() => {
+      document.getElementById('verify-file').addEventListener('change', () => {
+        const headingBefore = document.getElementById('result-heading').textContent
+        const observation = document.getElementById('memory-observation')
+        observation.value = 'roughly-flat'
+        observation.dispatchEvent(new Event('change'))
+        window.__verificationPending = {
+          headingBefore,
+          headingAfter: document.getElementById('result-heading').textContent,
+          exported: JSON.parse(document.getElementById('result-json').textContent)
+        }
+      }, { once: true })
+    })
     await page.locator('#verify-file').setInputFiles(archive)
+    const pending = await page.evaluate(() => window.__verificationPending)
+    assert.equal(pending.headingBefore, 'Verification in progress')
+    assert.equal(pending.headingAfter, 'Verification in progress')
+    assert.equal(pending.exported.status, 'verifying')
+    assert.equal(pending.exported.verified, false)
+    assert.equal(pending.exported.error, undefined)
+    assert.equal(pending.exported.memoryObservation, 'roughly-flat')
     await page.waitForFunction(() => /zip verified|failed/i.test(document.getElementById('status-heading').textContent))
     assert.match(await page.locator('#status-heading').textContent(), /zip verified/i, JSON.stringify(await page.evaluate(() => window.spikeTest.getResult())))
     console.log(JSON.stringify({ scenario: label, archiveBytes: info.size, ...zip, savedFileVerifiedByPage: true }))

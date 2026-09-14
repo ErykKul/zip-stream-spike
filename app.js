@@ -45,6 +45,9 @@ function showResult() {
     $('result-summary').textContent = large
       ? `${bytes(result.targetPayloadBytes)} of ZIP payload was saved and verified on this ${result.ramGiB} GB RAM computer. This records a successful run on this browser; it is not a measurement of its total memory use.`
       : 'The saved ZIP passed the integrity check. Next, choose your RAM size to test a larger download.'
+  } else if (result.status === 'verifying') {
+    $('result-heading').textContent = 'Verification in progress'
+    $('result-summary').textContent = 'The saved ZIP is still being checked. Wait for verification to finish before reporting a pass or failure.'
   } else if (result.status === 'download-finished') {
     $('result-heading').textContent = 'Download sent · verification pending'
     $('result-summary').textContent = 'The browser consumed the ZIP stream. Its final save is not yet verified; choose the completed download above to check it.'
@@ -193,7 +196,10 @@ async function verifyFile(file) {
   const id = runId
   verifyController = new AbortController()
   result.status = 'verifying'
+  result.verified = false
+  result.error = undefined
   result.verificationError = undefined
+  result.verificationProgress = { bytesRead: 0, totalBytes: file.size, elapsedMs: 0 }
   setBusy(true)
   $('verify-file').disabled = true
   $('status-heading').textContent = 'Verifying saved ZIP'
@@ -201,13 +207,17 @@ async function verifyFile(file) {
   $('cancel-run').textContent = 'Stop verification'
   $('progress').value = 0
   $('progress').setAttribute('aria-label', 'Verification progress')
-  store(true)
+  $('bytes-progress').textContent = `${bytes(0)} / ${bytes(file.size)}`
+  $('time-progress').textContent = '0:00'
+  showResult()
   try {
     const verification = await engine.verifySavedZip(file, {
       expectedPayloadBytes: result.targetPayloadBytes,
       signal: verifyController.signal,
       onProgress: (state) => {
         if (id !== runId) return
+        result.verificationProgress = { bytesRead: state.bytesRead, totalBytes: state.totalBytes, elapsedMs: state.elapsedMs, lastProgressAt: new Date().toISOString() }
+        store()
         $('progress').value = state.totalBytes ? state.bytesRead / state.totalBytes : 0
         $('bytes-progress').textContent = `${bytes(state.bytesRead)} / ${bytes(state.totalBytes)}`
         $('time-progress').textContent = duration(state.elapsedMs)
@@ -260,6 +270,7 @@ $('memory-observation').addEventListener('change', (event) => {
   if (result) { result.memoryObservation = event.target.value; showResult() }
 })
 $('copy-result').addEventListener('click', async () => {
+  $('result-json').textContent = JSON.stringify(result, null, 2)
   try {
     await navigator.clipboard.writeText(JSON.stringify(result, null, 2))
     $('copy-status').textContent = 'Copied'

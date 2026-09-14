@@ -59,6 +59,13 @@ Engine build `f5093478233d8b19`, frontend source
   a separate WebDriver run, not the Chromium smoke command above.
 - Desktop and mobile layouts were visually checked.
 
+A subsequent UI regression check covers changing the memory observation while
+saved-file verification is pending. This previously mislabeled the result as
+"Test did not pass" even though the verifier kept running. The small Chromium
+automatic-transport run passed with the corrected pending label, final saved-ZIP
+verification, independent ZIP reading, and corruption/truncation rejection. This
+fix does not change the frontend engine or its fingerprint.
+
 The test machine had 128 GiB RAM, so these results establish correctness and
 ZIP64 behavior, **not** a successful larger-than-RAM download. Normal-browser
 RAM-preset results, Safari, background-tab behavior, sleep/wake, and real server
