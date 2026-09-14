@@ -17,6 +17,8 @@ it does **not** establish memory usage or support for downloads larger than RAM.
 `node scripts/smoke.mjs --zip64` instead generates 5 GiB + 64 MiB per download
 and requires a valid entry larger than 4 GiB. That checks ZIP64 correctness,
 also without making a claim about RAM usage.
+The ZIP64 run skips the altered-copy fixtures; run the default small check to
+exercise corruption and truncation rejection.
 
 Requirements are Node.js, Python 3, Playwright, and a Chromium browser. The
 script uses a locally installed `playwright` package or the sibling
@@ -36,3 +38,28 @@ filesystem. The script needs room for the downloaded archives and one altered
 copy at a time. Headless/automated Chromium is not a replacement for testing the
 actual Chrome, Chromium, Edge, Opera, Firefox and Safari versions with their
 normal download managers and browser settings.
+
+## Recorded checks — 2026-09-14
+
+Engine build `f5093478233d8b19`, frontend source
+`5855877c3c6c2a9fcbf9c8be7ad0a5bc97599047`:
+
+- Build and all five unit tests passed. The copied frontend files and worker
+  matched their source hashes.
+- Chromium 153.0.8010.36 passed the 64 MiB smoke test locally and on the live
+  GitHub Pages site, with both automatic and forced MessageChannel transports.
+  Independent ZIP reading and saved-file verification passed; the small checks
+  rejected corruption and truncation.
+- Chromium passed 5 GiB + 64 MiB ZIP64 downloads with both transports. Each saved
+  archive was 5,435,818,422 bytes, including one 5 GiB entry. Independent ZIP
+  reading/CRC and the page's full SHA-256/CRC verification passed.
+- Firefox 155.0.1 passed a 64 MiB native download, independent ZIP reading/CRC,
+  and the page's saved-file verification using transferable streams. Wrong-file
+  rejection and recovery after reloading the page were also checked. This was
+  a separate WebDriver run, not the Chromium smoke command above.
+- Desktop and mobile layouts were visually checked.
+
+The test machine had 128 GiB RAM, so these results establish correctness and
+ZIP64 behavior, **not** a successful larger-than-RAM download. Normal-browser
+RAM-preset results, Safari, background-tab behavior, sleep/wake, and real server
+integration remain separate observations to collect.

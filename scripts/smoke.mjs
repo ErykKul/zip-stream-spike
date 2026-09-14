@@ -213,7 +213,7 @@ try {
   } else {
     if (!process.argv.includes('--message-channel-only')) await runScenario(browser, base, artifacts, false)
     if (!process.argv.includes('--automatic-only')) await runScenario(browser, base, artifacts, true)
-    console.log('PASS: selected downloads are valid ZIPs; saved-file verification accepts them and rejects corruption/truncation.')
+    console.log('PASS: selected downloads are valid ZIPs and saved-file verification succeeds.')
   }
 } finally {
   await browser?.close()
