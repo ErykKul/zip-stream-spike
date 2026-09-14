@@ -129,6 +129,7 @@ async function runScenario(browser, base, artifactDirectory, forceMessageChannel
     await page.waitForFunction(() => typeof window.spikeTest?.startRun === 'function')
     const downloadPromise = page.waitForEvent('download', { timeout })
     if (!forceMessageChannel && bytes === 64 * 1024 ** 2) {
+      await page.locator('details.setup-check').evaluate((element) => { element.open = true })
       await page.locator('#smoke-test').click()
     } else {
       await page.evaluate(({ payloadBytes, forced }) => {

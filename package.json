@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "sync-frontend": "node scripts/sync-frontend.mjs",
-    "test": "node tests/verify.test.mjs"
+    "test": "node tests/verify.test.mjs && node tests/scenarios.test.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",

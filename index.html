@@ -12,7 +12,7 @@
   <header>
     <a class="wordmark" href="https://github.com/ErykKul/zip-stream-spike">DATAVERSE <span>/ BROWSER CHECK</span></a>
     <h1>A big ZIP.<br>A simple browser check.</h1>
-    <p class="intro">Can this browser save a ZIP larger than your computer’s memory? Choose your RAM size to find out.</p>
+    <p class="intro">Choose your RAM size. The test checks stopping, recovery, and a ZIP larger than your computer’s memory automatically.</p>
   </header>
   <aside id="previous-run" class="notice" hidden>
     <strong>A previous run was interrupted.</strong><p id="previous-detail"></p>
@@ -33,7 +33,12 @@
       <button class="ram-button" data-ram="128"><strong>128 GB</strong><span>Save 140 GiB</span></button>
     </div>
     <p class="small">Choose your actual RAM size, or the next size up. Allow a little more free disk space than the size shown. Sizes are ZIP payload in GiB (1,024³ bytes).</p>
-    <div class="quick-check"><button id="smoke-test" class="secondary">Try a small ZIP first</button><span>64 MiB · checks the setup</span></div>
+    <p class="run-expectation">One button starts the checks. Keep this tab open and your computer awake, then choose the finished ZIP once for verification.</p>
+    <p class="small">Allow at least 12 minutes for the download checks, plus time to verify the saved ZIP. Faster downloads wait only until the 12-minute mark; unfinished source generation stops after 45 minutes. The stopping check runs automatically before your ZIP download starts.</p>
+    <details class="setup-check">
+      <summary>Advanced: quick setup check</summary>
+      <div class="quick-check"><button id="smoke-test" class="secondary">Try a small ZIP</button><span>64 MiB · setup only, without interruption or lifetime checks</span></div>
+    </details>
     <p id="boot-status" class="small" role="status">Loading the download test…</p>
   </section>
   <section id="run-panel" class="card" aria-labelledby="status-heading" hidden>
@@ -43,7 +48,21 @@
     <progress id="progress" value="0" max="1" aria-label="Download progress"></progress>
     <div class="metrics"><span id="bytes-progress">0 MiB</span><span id="time-progress">0:00</span></div>
     <p id="file-name" class="small filename"></p>
-    <div class="actions"><button id="cancel-run" class="secondary">Stop test</button></div>
+    <div class="actions"><button id="retry-run" class="primary" hidden>Retry download</button><button id="cancel-run" class="secondary">Stop test</button></div>
+    <div id="scenario-panel" class="scenario-panel" hidden>
+      <p id="scenario-instructions" class="small"></p>
+      <p id="scenario-progress" class="small"></p>
+      <details id="manual-observations">
+        <summary>Record a manual interruption</summary>
+        <p class="small">Use these for the stopping check, or for a separate connection check. The page cannot observe the browser's download list or native warning dialog.</p>
+        <label class="observation" for="diagnostic-action">Action you tried</label>
+        <select id="diagnostic-action"><option value="not-recorded">No manual action recorded</option><option value="page-stop">Clicked Stop test on this page</option><option value="browser-cancel">Cancelled in the browser's download list</option><option value="reload-stay">Tried reload, then chose to stay</option><option value="offline-online">Disconnected and reconnected the network</option></select>
+        <label class="observation" for="download-observation">Browser's download list</label>
+        <select id="download-observation"><option value="not-observed">Not checked</option><option value="failed-or-cancelled">Reported failed or cancelled</option><option value="completed">Reported completed</option><option value="still-running">Still running</option></select>
+        <label class="observation" for="guard-observation">When you tried reloading</label>
+        <select id="guard-observation"><option value="not-checked">Not checked</option><option value="warning-stayed">Warning appeared; I chose to stay</option><option value="no-warning">No warning appeared</option></select>
+      </details>
+    </div>
     <div id="verify-panel" class="verify-panel" hidden>
       <p>When the browser’s download is complete, choose the saved ZIP. The check reads it in small pieces and verifies its contents.</p>
       <label class="primary file-button">Choose saved ZIP to verify<input id="verify-file" type="file" accept=".zip,application/zip"></label>
@@ -68,13 +87,14 @@
     <p>This page runs the ZIP download engine from the Dataverse frontend. It creates test data locally, feeds it through the same range-reading, checksum, ZIP creation, and browser-saving code, then checks the ZIP you saved.</p>
     <p>No dataset or login is needed, and nothing is uploaded. A pass applies to the browser and machine you tested. It does not test a Dataverse installation’s network, permissions, or storage configuration.</p>
     <p>Keep this tab open and your computer awake during the check. If asked where to save the download, choose a folder on disk. The page cannot read your Downloads folder automatically, so it asks you to choose the finished file before reporting a verified result.</p>
-    <p>A small ZIP checks the setup. The RAM buttons exercise archives larger than your stated memory, including individual files larger than 4 GiB.</p>
+    <p>A small ZIP checks the setup. Each RAM button first checks that the page can stop a waiting source, then exercises recovery from simulated response failures and an archive larger than your stated memory. The source stays open for at least 12 minutes, including a deliberate quiet interval. The saved ZIP verifies resumed bytes, ZIP64 structure, and every entry’s checksum.</p>
+    <p>You can use another tab while the test runs; visibility changes are recorded. Native download-manager cancellation, reload warning dialogs, sleep/wake, and a real network disconnection need separate tests. This page does not pretend to perform those browser or operating-system actions automatically.</p>
     <p id="source-version" class="small"></p>
     <p><a href="https://github.com/ErykKul/zip-stream-spike#readme">Source and test notes</a> · <a href="https://github.com/IQSS/dataverse-frontend/pull/898">Dataverse frontend PR</a></p>
   </details>
   <footer>Test in Edge, Opera, Chrome, Chromium, Firefox, or Safari. Report the result you observe; browser support is what we are measuring.</footer>
 </main>
 <noscript><p>This test needs JavaScript enabled.</p></noscript>
-<script type="module" src="app.js?v=20260914-2"></script>
+<script type="module" src="app.js?v=20260914-4"></script>
 </body>
 </html>

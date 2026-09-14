@@ -1,7 +1,7 @@
 # Large ZIP browser check
 
 **Open [the test page](https://erykkul.github.io/zip-stream-spike/) in the browser
-you want to test. Choose your computer’s RAM size and let it download.**
+you want to test. Choose your computer’s RAM size and leave the automatic check running.**
 
 This experiment tests the ZIP downloader used by
 [Dataverse frontend PR #898](https://github.com/IQSS/dataverse-frontend/pull/898).
@@ -13,15 +13,18 @@ server, account, large source file, or upload is needed.
 
 1. Choose the button matching your installed RAM, or the next size up. On a
    **32 GB RAM** machine, choose **32 GB**: it creates a ZIP containing **35 GiB**
-   of data. Make sure the disk has enough free space. A small 64 MiB setup check
-   is available too.
-2. Leave the page open and the computer awake. If the browser asks where to save
-   the ZIP, choose a folder on disk and keep its suggested unique filename.
-   Wait for the browser download to finish.
-3. Click **Choose saved ZIP to verify**, and select the completed download.
+   of data. Make sure the disk has enough free space.
+2. The button runs the stopping check, then downloads your large ZIP with
+   automatic recovery, pauses, and at least 12 minutes of stream lifetime.
+   **No Retry click or separate diagnostic is needed.** Only the final ZIP is
+   saved as a browser download. Keep its suggested unique filename.
+3. Leave the page open and the computer awake, with developer tools closed.
+   You can use another tab or application while it runs. Wait for the final
+   browser download to finish.
+4. Click **Choose saved ZIP to verify**, and select the completed download.
    The page checks the archive structure and every entry’s SHA-256 and CRC-32
    using small reads in a worker. It needs no extraction or extra copy.
-4. **Copy result** or **Save result**, send it to the person collecting results,
+5. **Copy result** or **Save result**, send it to the person collecting results,
    and repeat in the next browser. Delete the ZIP when finished.
 
 | RAM button | ZIP payload |
@@ -73,15 +76,19 @@ changed snapshots. The only data-source substitution is a narrowly scoped
 synthetic `fetch` handler returning streamed range responses.
 
 The default run keeps the frontend’s transport selection, incremental hashes,
-10 MiB ranges, `client-zip` encoder, MessageChannel fallback, keepalive, and
-error handling. The worker is under `reusable-components/`, outside the page’s
+10 MiB ranges, `client-zip` encoder, MessageChannel fallback, and keepalive.
+The harness injects source failures and invokes the actual frontend Retry and
+Cancel actions automatically; it does not replace their implementation. The
+worker is under `reusable-components/`, outside the page’s
 scope, matching the embedded JSF layout. If the frontend chooses its Blob
-fallback, the result records it and the existing 2 GiB cap applies. There is no
+fallback, the complete check stops as inconclusive because it requires streaming.
+The plain Advanced check retains the production 2 GiB buffered cap. There is no
 OPFS alternative, custom ZIP writer, or hidden large-memory fallback added here.
 
 This test does **not** establish behavior against real Dataverse servers:
-authentication, storage CORS, S3 redirects, URL expiry, tree enumeration, network
-failures, background-tab throttling, and sleep/wake need separate checks.
+authentication, storage CORS, S3 redirects, URL expiry, tree enumeration, real network
+failures and sleep/wake need separate checks. Background visibility is recorded
+for this run; a foreground result does not establish hidden-tab behavior.
 
 ## Development and publishing
 
@@ -105,6 +112,54 @@ To update the source snapshot, follow [PROVENANCE.md](PROVENANCE.md).
 both transport paths, independent ZIP validation, and rejection of corruption
 and truncation. Its optional ZIP64 run exercises an entry larger than 4 GiB.
 Smoke-test success is not a substitute for each tester’s larger-than-RAM run.
+
+## What the automatic sequence checks
+
+Each RAM button performs the same sequence:
+
+1. Start an internal stream through the actual ZIP hook, encoder, sink and
+   service worker. Cancel while its source read is waiting and check both the
+   frontend abort signal and consumer failure. This probe creates no saved file.
+2. Start the selected large ZIP. Return one simulated HTTP 503 and interrupt a
+   response after 3 MiB. The harness invokes the actual Retry action and checks
+   the resumed request starts at exactly 3 MiB.
+3. Pause source bytes for 45 seconds, then transfer at the pipeline's normal
+   speed. Before the final chunk, keep the stream open until its active source
+   lifetime reaches **12 minutes**. A naturally longer transfer needs no extra
+   lifetime wait. Source generation has a **45-minute ceiling**; reaching it is
+   inconclusive. Verification takes additional time.
+4. Ask you to select the final saved ZIP and verify its complete structure,
+   SHA-256 and CRC-32. The browser does not let a web page read Downloads
+   automatically, so this final file selection is required.
+
+“Browser ZIP check passed” requires all automatic checks and saved-file
+integrity to succeed. It includes the injected faults, automatic decisions, exact resumed
+range, source pause, lifetime evidence, and visibility changes. Ordinary range
+request logs are sampled in large runs; exact request counters are retained.
+
+**The automatic stopping check uses an internal stream consumer.** A page cannot inspect
+native download-manager controls, test its own actual network disconnection, or
+confirm a reload dialog without user interaction. Those checks use separate
+browser automation or explicit manual observations. They are listed as outside
+the page's automatic result, not silently counted as passes. Real Dataverse
+credentials, CORS, storage requests and sleep/wake also need integration checks.
+
+Existing 35 GiB integrity results remain historical evidence for their recorded
+frontend version. Repeating a RAM-button run now collects the combined evidence
+on the updated cancellation handling. For a fast setup check, Advanced offers
+an unpaced 64 MiB ZIP without interruptions or the 12-minute duration floor.
+
+See [interruption automation](scripts/INTERRUPTIONS.md) for the browser checks.
+The small recovery, cancellation, and old paced-background scenarios remain
+available through the testing API. The old paced-background scenario uses
+chained JavaScript timers: hidden Chromium can throttle those source timers
+heavily after five minutes. Its nominal duration is not a reliable model of a
+real network source; use the complete unpaced sequence for lifetime evidence.
+
+During a background run, keep only one test tab open in each browser application;
+other test tabs may keep its shared worker active. Different browser applications
+can run together, but compete for CPU and disk resources. A deadline is checked
+when the browser can execute code; sleep or suspension can delay it.
 
 ## Earlier experiment
 

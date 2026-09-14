@@ -50,12 +50,15 @@ for (let bytes = pattern.length; bytes <= 5 * GIB; bytes += pattern.length) {
 await mkdir('generated', { recursive: true })
 await writeFile('generated/checksums.json', JSON.stringify(checksums, null, 2) + '\n')
 const metadata = { ...source, libraries, clientZipVersion: libraries['client-zip'],
+  frontendMechanismId: createHash('sha256').update(JSON.stringify({
+    sourceFiles: source.sourceFiles, runtimeDependencies: packageSpec.dependencies
+  })).digest('hex').slice(0, 16),
   pattern: 'xorshift32-6d2b79f5-repeat-256KiB-v1',
   rangeBytes: 10 * MIB, sourceChunkBytes: pattern.length,
   maximumEntryBytes: 5 * GIB,
   workerPath: 'reusable-components/zip-download-sw.js',
   completionMeaning: 'Source stream consumed; saved file must be verified separately.' }
-const inputs = ['src/engine.ts', 'src/verify.mjs', 'src/verify-worker.mjs', 'src/payload.mjs', 'scripts/build.mjs', 'package.json']
+const inputs = ['src/engine.ts', 'src/scenarios.mjs', 'src/verify.mjs', 'src/verify-worker.mjs', 'src/payload.mjs', 'reusable-components/check.html', 'scripts/build.mjs', 'package.json']
 const hash = createHash('sha256').update(JSON.stringify(metadata)).update(JSON.stringify(checksums))
 for (const input of inputs) hash.update(await readFile(input))
 metadata.buildId = hash.digest('hex').slice(0, 16)

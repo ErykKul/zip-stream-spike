@@ -70,3 +70,44 @@ The test machine had 128 GiB RAM, so these results establish correctness and
 ZIP64 behavior, **not** a successful larger-than-RAM download. Normal-browser
 RAM-preset results, Safari, background-tab behavior, sleep/wake, and real server
 integration remain separate observations to collect.
+
+## Automatic combined checks — 2026-09-14
+
+Current engine `b247577d88111321`, exact frontend source
+`fc73d4eced3f46583012f787973d0f4c437a8c54`, mechanism fingerprint
+`5821e415b808e43c`:
+
+- All 18 unit cases passed (5 verifier, 13 scenario cases).
+- Chromium 153.0.8010.36 passed the complete automatic sequence in an actual
+  hidden tab using standard ChromeDriver under Xvfb, with background-disabling
+  switches excluded and default download permissions. The 64 MiB native ZIP
+  completed after 721,014 ms and passed independent Python CRC plus the page's
+  SHA-256/CRC verification. All five suite checks passed; 714 visibility samples
+  were hidden, none visible before completion. This tests lifetime and recovery,
+  not a payload larger than RAM.
+- Native browser cancellation passed on both transferred streams and forced
+  MessageChannel after the frontend cancellation fixes, without unhandled
+  rejections. Plain 64 MiB native download, corruption/truncation rejection,
+  verification progress labels and the desktop/mobile layouts passed checks.
+- Firefox 155 passed the revised internal-consumer preflight, automatic Retry,
+  exact 3 MiB resume, 45-second source pause and Stop during the final hold, with
+  one native ZIP created and no automatic restart. A complete long run on the
+  final helper build is still being verified; this prefix is not an integrity
+  pass for an unfinished archive.
+- Firefox native download-backend checks confirmed Page Stop stops the download.
+  Cancel in the download backend stopped the download immediately but reached
+  the frontend only after its pending read resumed, about 47.33 seconds in the
+  deliberate quiet scenario. Only one additional 256 KiB chunk was generated.
+- **Firefox browser offline/online recovery failed** in a temporary profile:
+  five seconds offline during source silence caused the destination stream to
+  fail on resumption. The frontend reported the failure and did not claim a
+  verified ZIP. This remains a limitation, distinct from retrying synthetic
+  HTTP/body failures or testing real Dataverse network requests.
+
+The older chained-timer background fixture was stopped as inconclusive after
+Chromium throttled its synthetic source heavily. A native cancellation preflight
+was also replaced because it triggered Chrome's multiple-download permission
+and blocked the main stream. The current internal consumer avoids that gate
+without changing the main ZIP's native download path or granting permissions.
+
+See [interruption automation](INTERRUPTIONS.md) for commands and boundaries.

@@ -1,10 +1,10 @@
 {
   "repository": "https://github.com/IQSS/dataverse-frontend",
-  "sourceCommit": "5855877c3c6c2a9fcbf9c8be7ad0a5bc97599047",
+  "sourceCommit": "fc73d4eced3f46583012f787973d0f4c437a8c54",
   "sourceFiles": {
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-    "src/sections/dataset/dataset-files/files-tree/useStreamingZipDownload.ts": "6adbe579e5ae0be12e48adf9476a56b9e69eb52e9a0657d2276ad7f62d8c98d2",
-    "src/sections/dataset/dataset-files/files-tree/zipStreamSink.ts": "a9737accbc816baec1ab4159dc29e13692ab7c4f170f39a3010118656368a302",
+    "src/sections/dataset/dataset-files/files-tree/useStreamingZipDownload.ts": "53a9fcd8ea256a3d457d9c380de4adef3d45d56d894184050168fa92839a0b78",
+    "src/sections/dataset/dataset-files/files-tree/zipStreamSink.ts": "012f18f6430c093aa85ffd04ba72f045ed44b1c054c26c98052141302ca469db",
     "src/sections/dataset/dataset-files/files-tree/zipDownloadLimits.ts": "646ded2c0b65649479beeffa51803bda954c9df0875a67e3b090ec6a4a704da7",
     "src/sections/dataset/dataset-files/files-tree/format.ts": "32081ed6f7f34eb96308c37eb0ab7651e6a801b76e6dd7ff15898a2118ddd02d",
     "src/shared/hooks/useBeforeUnloadGuard.ts": "a0ec7fe72f93f240127cada5c94b3d5d3c2ad63838432ed489f583a2be647198",

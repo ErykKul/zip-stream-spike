@@ -2,7 +2,7 @@
 
 `engine.js` bundles the actual `useStreamingZipDownload` React hook and its
 dependency closure from IQSS/dataverse-frontend commit
-`5855877c3c6c2a9fcbf9c8be7ad0a5bc97599047` (PR #898). The hook runs in a hidden React
+`fc73d4eced3f46583012f787973d0f4c437a8c54` (PR #898). The hook runs in a hidden React
 root, just as a component would use it. Its source, `zipStreamSink`, size limits,
 formatting dependency and unload guard are copied byte for byte under
 `vendor/frontend/`. The service worker is an unchanged copy of the frontend
@@ -53,6 +53,59 @@ bounded memory. No preliminary browser pass over the large payload is needed.
 `start({transferStreams: false, ...})` forces the actual MessageChannel sink for
 automation and diagnostics. Such a run is explicitly marked diagnostic. The
 normal RAM buttons do not override the production transport decision.
+
+## Automatic sequence and diagnostic scenarios
+
+The RAM buttons call `startSuite`, which first runs a 64 MiB cancellation check,
+then `start({scenario: 'complete', ...})` with the selected payload. This adds
+source errors, automatic Retry, 45 seconds of silence and a final-chunk hold to
+at least 12 minutes, with a 45-minute source ceiling. `checkCancellation` invokes
+the actual hook cancellation during a pending source read. A pass requires the
+frontend fetch AbortSignal to abort while that read is pending; disposing the
+synthetic source alone cannot pass. Signal listeners are removed as each range
+response ends. The probe supplies the existing sink's `navigate` option with a
+controlled helper iframe under `reusable-components/`. That iframe fetches and
+consumes the real worker's ZIP response instead of starting a native download;
+consumer failure is required too. The helper is included in the build hash.
+This avoids Chrome's multiple-download gate and creates just one native saved
+ZIP: the main payload, whose default navigation and sink are unchanged.
+Native download-manager cancellation is separately tested by browser automation;
+it cannot be inferred from this internal-consumer probe.
+
+`start({scenario: 'recovery' | 'background' | 'cancel', ...})` retains the smaller
+64 MiB diagnostics for browser automation. It refuses
+a buffered sink because that would not test service-worker behavior. Omitting
+`scenario`, as the Advanced setup check does, leaves the source unpaced and fault-free.
+
+`src/scenarios.mjs` defines the fixed durations, one-time errors, exact resumed
+offset expectation, and time limits. Its injectable clock is used only by unit
+tests; the browser engine exposes no timing override. `retry()` forwards the
+actual hook's `retryCurrent()` decision. The frontend's retry counts, delay,
+range size, keepalive and worker source are unchanged. Events and visibility
+changes are included in the result. Pending synthetic reads and diagnostic
+timers are cleaned up on stop or completion.
+
+The harness also records a stable `frontendMechanismId`, derived from the copied
+frontend files and runtime dependency versions. `buildId` additionally includes
+the diagnostic adapter and build inputs, so it changes when the harness changes.
+Earlier results without `frontendMechanismId` can be matched by their frontend
+commit and dependency versions against the retained source-hash provenance.
+The earlier large ZIPs remain valid evidence for their recorded source version.
+The current snapshot adds two frontend cancellation fixes: rejected source-reader
+cancellation is handled, and client-zip's unhandled call to the input generator's
+`throw()` is caught specifically on cancellation. Ordinary source/read failures
+still propagate through the frontend recovery flow. These fixes are in local
+frontend commits `5d5ce8d5b` and `fc73d4ece`; the dependency versions and download
+worker are unchanged. This test repository contains the exact source even before
+those frontend commits are pushed for PR re-review.
+
+Fault injection checks the frontend's response to those exact source failures.
+It is not an actual Internet outage. Browser offline/online automation probes
+the destination stream separately, with source bytes still generated locally.
+Cancellation and unload dialogs require either native-browser automation or
+explicit tester observations; a page result alone cannot inspect those controls.
+A source-complete event must still be followed by saved-file verification for
+an integrity pass. Timeouts and unavailable streaming sinks are inconclusive.
 
 ## What a successful result establishes
 
