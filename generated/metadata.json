@@ -1,0 +1,34 @@
+{
+  "repository": "https://github.com/IQSS/dataverse-frontend",
+  "sourceCommit": "5855877c3c6c2a9fcbf9c8be7ad0a5bc97599047",
+  "sourceFiles": {
+    "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "src/sections/dataset/dataset-files/files-tree/useStreamingZipDownload.ts": "6adbe579e5ae0be12e48adf9476a56b9e69eb52e9a0657d2276ad7f62d8c98d2",
+    "src/sections/dataset/dataset-files/files-tree/zipStreamSink.ts": "a9737accbc816baec1ab4159dc29e13692ab7c4f170f39a3010118656368a302",
+    "src/sections/dataset/dataset-files/files-tree/zipDownloadLimits.ts": "646ded2c0b65649479beeffa51803bda954c9df0875a67e3b090ec6a4a704da7",
+    "src/sections/dataset/dataset-files/files-tree/format.ts": "32081ed6f7f34eb96308c37eb0ab7651e6a801b76e6dd7ff15898a2118ddd02d",
+    "src/shared/hooks/useBeforeUnloadGuard.ts": "a0ec7fe72f93f240127cada5c94b3d5d3c2ad63838432ed489f583a2be647198",
+    "src/files/domain/models/FileTreeItem.ts": "48423f40b54a22738fff5f2fdcbf0b075c5eb8e91d0f730f2a1e6308dcf1132e",
+    "src/files/domain/models/FileAccess.ts": "ad2f12d42fff291ab73e0565fb06270281acc0eec1a8d6f89c52d5bdd98fb5ea",
+    "src/files/domain/models/FileMetadata.ts": "3a16d349f04cc32a29ad960f8a9125111ea6f54b8d93dc85a49c3c1511b7eebb",
+    "src/files/domain/models/FileTypeToFriendlyTypeMap.ts": "261d85897eae3e20568d6e3f19496668570955310ccc8f9911712450558f3f25",
+    "public/zip-download-sw.js": "e8ef707f3949c513d60d3e46ec6eaeade7d8b6b638fd2ffca00371baeed287c8"
+  },
+  "libraries": {
+    "@noble/hashes": "2.4.0",
+    "client-zip": "2.5.0",
+    "js-md5": "0.8.3",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "scheduler": "0.23.2",
+    "esbuild": "0.25.10"
+  },
+  "clientZipVersion": "2.5.0",
+  "pattern": "xorshift32-6d2b79f5-repeat-256KiB-v1",
+  "rangeBytes": 10485760,
+  "sourceChunkBytes": 262144,
+  "maximumEntryBytes": 5368709120,
+  "workerPath": "reusable-components/zip-download-sw.js",
+  "completionMeaning": "Source stream consumed; saved file must be verified separately.",
+  "buildId": "f5093478233d8b19"
+}

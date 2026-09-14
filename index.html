@@ -1,619 +1,80 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Streaming download check</title>
-<style>
-  body { font: 15px/1.55 system-ui, sans-serif; margin: 0 auto; max-width: 720px; padding: 24px 16px; color: #111; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .lede { color: #444; margin: 0 0 20px; }
-  fieldset { border: 1px solid #ccc; border-radius: 6px; margin: 0 0 16px; padding: 12px 16px; }
-  legend { font-weight: 600; }
-  button { font: inherit; padding: 8px 14px; margin: 4px 8px 4px 0; }
-  #run { font-size: 18px; padding: 14px 28px; margin: 0 0 16px; }
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0 0; }
-  dt { color: #555; }
-  code { background: #f3f3f3; padding: 0 4px; }
-  .ok { color: #1a7f37; } .bad { color: #b42318; } .warn { color: #9a6700; }
-  label { display: inline-block; margin-right: 12px; }
-  input[type=number] { width: 7em; }
-  .card { border: 1px solid #ccc; border-radius: 6px; padding: 12px 16px; margin: 0 0 16px; }
-  .counter { font-size: 30px; font-variant-numeric: tabular-nums; margin: 4px 0; }
-  .sub { color: #555; }
-  .ask { background: #fff8e5; border-color: #e0c060; }
-  .ask p { margin: 0 0 10px; font-weight: 600; }
-  pre { background: #f3f3f3; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
-  details { margin-top: 28px; }
-  summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
-  .banner { background: #fdecea; border: 1px solid #e0a0a0; border-radius: 6px; padding: 12px 16px; margin: 0 0 16px; }
-  .steps { margin: 0; padding-left: 20px; color: #444; }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Test the Dataverse ZIP downloader with an archive larger than your computer's memory.">
+  <title>Large ZIP browser check · Dataverse</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>Streaming download check</h1>
-<p class="lede">Answers one question: when this browser saves a file that a page is still generating, does it write the bytes to disk as they arrive, or hold the whole file in memory first?</p>
-
-<div id="crashBanner" class="banner" hidden>
-  <strong>Your last run did not finish.</strong>
-  <div id="crashDetail"></div>
-  <button id="dismissCrash">Dismiss</button>
-</div>
-
-<div class="card" id="picker">
-  <p><strong>How much memory does this machine have?</strong> Pick the closest size.</p>
-  <div>
-    <button class="ram" data-gb="8">8 GB</button>
-    <button class="ram" data-gb="16">16 GB</button>
-    <button class="ram" data-gb="32">32 GB</button>
-    <button class="ram" data-gb="64">64 GB</button>
-    <button class="ram" data-gb="128">128 GB</button>
-  </div>
-  <p class="sub">The check then downloads <strong>more than that</strong> and hashes it on the way past. A browser holding the file in memory could not finish, so completing it is the proof. Make sure the disk has room, and delete <code>check.bin</code> afterwards.</p>
-  <p class="sub"><button id="runQuick">Quick 4 GB check</button> exercises the plumbing but says nothing about memory.</p>
-</div>
-
-<div id="live" class="card" hidden>
-  <div class="counter"><span id="liveBytes">0 MB</span> <span class="sub" id="livePct"></span></div>
-  <div class="sub"><span id="liveElapsed">0 s</span> elapsed, <span id="liveRate">0 MB/s</span>, target <span id="liveTotal"></span></div>
-  <div class="sub" id="liveHash">hashing: waiting</div>
-  <div class="sub" id="liveStatus">starting</div>
-</div>
-
-<div id="ask" class="card ask" hidden>
-  <p>Watch this browser's memory while the counter above climbs.</p>
-  <ol class="steps" id="memSteps"></ol>
-  <p style="margin-top:10px">Does that number stay roughly flat, or climb along with the counter above?</p>
-  <button id="askFlat">Stays flat</button>
-  <button id="askClimb">Climbs with the counter</button>
-  <button id="askUnsure">Cannot tell</button>
-  <p class="sub" style="margin-top:10px">Ignore the file size in the download list. Browsers pre-allocate the file to its full announced length, so that number proves nothing either way.</p>
-</div>
-
-<div id="verdict" class="card" hidden>
-  <div id="verdictText"></div>
-  <pre id="resultLine"></pre>
-  <button id="copy">Copy result</button>
-</div>
-
-<details id="advanced">
-<summary>Advanced (the original spike controls)</summary>
-
-<p>Generates data slowly and saves it two ways. Watch the browser's download list: a file that appears early and grows is streaming; one that appears only at the end was buffered.</p>
-
-<fieldset>
-  <legend>Settings</legend>
-  <label>Total <input id="totalMb" type="number" value="2048" min="1"> MB</label>
-  <label>Rate <input id="rateMbs" type="number" value="1" min="0.1" step="0.1"> MB/s</label>
-  <label><input id="keepalive" type="checkbox" checked> keepalive ping every 10 s</label>
-  <label><input id="transferable" type="checkbox" checked> transfer the stream (uncheck to force MessageChannel)</label>
-  <label><input id="shortClose" type="checkbox"> close early: announce the full Content-Length but stop at half</label>
-</fieldset>
-
-<fieldset>
-  <legend>A. Service worker stream</legend>
-  <button id="startSw">Start</button>
-  <button id="abortSw" disabled>Abort (error the stream)</button>
-  <dl>
-    <dt>API available</dt><dd id="swAvail">checking</dd>
-    <dt>Transferable streams</dt><dd id="xferAvail">checking</dd>
-    <dt>Bytes generated</dt><dd id="swBytes">0</dd>
-    <dt>Elapsed</dt><dd id="swElapsed">0 s</dd>
-    <dt>Status</dt><dd id="swStatus">idle</dd>
-  </dl>
-</fieldset>
-
-<fieldset>
-  <legend>B. OPFS spool</legend>
-  <button id="startOpfs">Start</button>
-  <button id="abortOpfs" disabled>Abort</button>
-  <dl>
-    <dt>API available</dt><dd id="opfsAvail">checking</dd>
-    <dt>Bytes generated</dt><dd id="opfsBytes">0</dd>
-    <dt>Elapsed</dt><dd id="opfsElapsed">0 s</dd>
-    <dt>Status</dt><dd id="opfsStatus">idle</dd>
-  </dl>
-</fieldset>
-
-<fieldset>
-  <legend>Page</legend>
-  <dl>
-    <dt>User agent</dt><dd id="ua"></dd>
-    <dt>JS heap (Chrome only)</dt><dd id="heap">n/a</dd>
-  </dl>
-</fieldset>
-</details>
-
-<iframe id="dl" hidden></iframe>
-
-<script>
-const $ = (id) => document.getElementById(id)
-const MB = 1024 * 1024
-$('ua').textContent = navigator.userAgent
-const fmt = (n) => (n >= 1024 * MB ? (n / (1024 * MB)).toFixed(2) + ' GB' : (n / MB).toFixed(1) + ' MB')
-
-const swSupported = 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')
-$('swAvail').textContent = swSupported ? 'yes' : 'no (needs HTTPS or localhost)'
-$('swAvail').className = swSupported ? 'ok' : 'bad'
-
-let transferable = false
-try {
-  const mc = new MessageChannel()
-  const rs = new ReadableStream()
-  mc.port1.postMessage(rs, [rs])
-  transferable = true
-} catch (e) { transferable = false }
-$('xferAvail').textContent = transferable ? 'yes' : 'no, MessageChannel fallback'
-$('xferAvail').className = transferable ? 'ok' : ''
-if (!transferable) $('transferable').checked = false
-
-const opfsSupported = !!(navigator.storage && navigator.storage.getDirectory)
-const writableSupported = typeof FileSystemFileHandle !== 'undefined' && 'createWritable' in FileSystemFileHandle.prototype
-$('opfsAvail').textContent = !opfsSupported ? 'no' : writableSupported ? 'yes (createWritable)' : 'directory only; createWritable missing, sync handle worker needed'
-$('opfsAvail').className = opfsSupported && writableSupported ? 'ok' : opfsSupported ? '' : 'bad'
-
-let peakHeap = 0
-if (performance.memory) {
-  setInterval(() => {
-    const used = performance.memory.usedJSHeapSize
-    if (used > peakHeap) peakHeap = used
-    $('heap').textContent = fmt(used)
-  }, 1000)
-}
-
-// Generates `total` bytes at `rate` bytes per second (rate 0 = as fast as the
-// consumer pulls), in 1 MB chunks copied from one prebuilt pattern buffer.
-function makeGenerator(total, rate, onProgress, onChunk) {
-  const chunkSize = 1024 * 1024
-  const pattern = new Uint8Array(chunkSize)
-  for (let i = 0; i < chunkSize; i += 4) {
-    const v = (i / 4) >>> 0
-    pattern[i] = v & 255; pattern[i + 1] = (v >>> 8) & 255; pattern[i + 2] = (v >>> 16) & 255; pattern[i + 3] = (v >>> 24) & 255
-  }
-  let produced = 0
-  const started = performance.now()
-  let aborted = null
-  async function* gen() {
-    while (produced < total) {
-      if (aborted) throw aborted
-      const n = Math.min(chunkSize, total - produced)
-      const chunk = pattern.slice(0, n)
-      produced += n
-      if (onChunk) onChunk(chunk)
-      onProgress(produced, performance.now() - started)
-      if (rate > 0) {
-        const expected = (produced / rate) * 1000
-        const wait = expected - (performance.now() - started)
-        if (wait > 0) await new Promise((r) => setTimeout(r, wait))
-      }
-      yield chunk
-    }
-  }
-  return { gen, abort: (err) => { aborted = err } }
-}
-
-// ---- service worker ----------------------------------------------------
-let swReady = null
-if (swSupported) {
-  swReady = (async () => {
-    await navigator.serviceWorker.register('sw.js', { scope: './' })
-    await navigator.serviceWorker.ready
-    if (!navigator.serviceWorker.controller) {
-      if (sessionStorage.getItem('sw-reloaded')) throw new Error('page is still not controlled after a reload')
-      sessionStorage.setItem('sw-reloaded', '1')
-      $('swAvail').textContent = 'installed, reloading once to take control'
-      location.reload()
-      await new Promise(() => {})
-    }
-    sessionStorage.removeItem('sw-reloaded')
-    $('swAvail').textContent = 'yes, page controlled'
-    return navigator.serviceWorker.controller
-  })()
-  swReady.catch((e) => { $('swAvail').textContent = 'failed: ' + e.message; $('swAvail').className = 'bad' })
-}
-async function ensureSw() {
-  if (!swReady) throw new Error('service worker not available here')
-  return swReady
-}
-
-// Shared engine: streams `total` bytes through the service worker to a
-// download, and reports progress and completion to the caller.
-async function startSwRun(opts) {
-  const controller = await ensureSw()
-  const id = Math.random().toString(36).slice(2)
-  const announced = opts.total
-  const produce = opts.shortClose ? Math.floor(opts.total / 2) : opts.total
-  const g = makeGenerator(produce, opts.rate, opts.onProgress, opts.onChunk)
-  const it = g.gen()
-  let keepaliveTimer = null
-  const done = (msg, ok) => {
-    if (keepaliveTimer) { clearInterval(keepaliveTimer); keepaliveTimer = null }
-    opts.onFinish(msg, ok)
-  }
-  const stream = new ReadableStream({
-    async pull(c) {
-      try {
-        const { value, done: fin } = await it.next()
-        if (fin) { c.close(); done(opts.shortClose ? 'done, stream closed early at half of the announced length' : 'done, stream closed', true) }
-        else c.enqueue(value)
-      } catch (e) {
-        c.error(e); done('errored: ' + e.message, false)
-      }
-    },
-    cancel(reason) { g.abort(new Error('cancelled: ' + reason)); done('cancelled by the browser', false) }
-  })
-  const registered = new Promise((resolve) => {
-    const onMsg = (e) => { if (e.data && e.data.type === 'registered' && e.data.id === id) { navigator.serviceWorker.removeEventListener('message', onMsg); resolve() } }
-    navigator.serviceWorker.addEventListener('message', onMsg)
-  })
-  let path = 'transferred stream'
-  if (opts.useTransferable && transferable) {
-    controller.postMessage({ type: 'register', id, name: opts.name, size: announced, stream }, [stream])
-  } else {
-    path = 'MessageChannel'
-    const mc = new MessageChannel()
-    const reader = stream.getReader()
-    mc.port1.onmessage = async (e) => {
-      const t = e.data && e.data.type
-      if (t === 'pull') {
-        try {
-          const { value, done: fin } = await reader.read()
-          if (fin) mc.port1.postMessage({ type: 'close' })
-          else mc.port1.postMessage({ type: 'chunk', chunk: value.buffer }, [value.buffer])
-        } catch (err) {
-          mc.port1.postMessage({ type: 'error', message: err.message })
-        }
-      } else if (t === 'cancel') {
-        reader.cancel('cancelled by worker')
-      }
-    }
-    controller.postMessage({ type: 'register', id, name: opts.name, size: announced, port: mc.port2 }, [mc.port2])
-  }
-  await registered
-  const url = new URL('zipdl/' + id + '/' + opts.name, location.href).href
-  if (opts.keepalive) {
-    keepaliveTimer = setInterval(() => { fetch(new URL('zipdl/' + id + '/keepalive', location.href).href, { cache: 'no-store' }).catch(() => {}) }, 4000)
-  }
-  $('dl').src = url
-  return { abort: () => g.abort(new Error('aborted by user')), path }
-}
-
-// ---- the one-button check ----------------------------------------------
-const params = new URLSearchParams(location.search)
-const STATE_KEY = 'spike.run'
-let CHECK_TOTAL = (Number(params.get('totalMb')) || 4096) * MB
-let CHECK_RATE = (Number(params.get('rateMbs')) || 50) * MB
-let ramGb = 0
-
-let sha256 = null
-let bytesToHex = null
-const hashReady = (async () => {
-  try {
-    const [m, u] = await Promise.all([
-      import('./vendor/noble-hashes/sha2.js'),
-      import('./vendor/noble-hashes/utils.js')
-    ])
-    sha256 = m.sha256
-    bytesToHex = u.bytesToHex
-  } catch (e) {
-    sha256 = null
-  }
-})()
-
-function saveState(patch) {
-  const prev = JSON.parse(localStorage.getItem(STATE_KEY) || '{}')
-  localStorage.setItem(STATE_KEY, JSON.stringify(Object.assign(prev, patch)))
-}
-function clearState() { localStorage.removeItem(STATE_KEY) }
-
-;(function showPreviousCrash() {
-  let st = null
-  try { st = JSON.parse(localStorage.getItem(STATE_KEY) || 'null') } catch (e) { st = null }
-  if (!st || st.phase !== 'running') return
-  $('crashBanner').hidden = false
-  $('crashDetail').innerHTML =
-    'It stopped after <strong>' + fmt(st.bytes || 0) + '</strong> of ' + fmt(st.total || 0) + '. ' +
-    'If you did not close the tab yourself, the browser ran out of memory, which means it was holding the file in RAM rather than writing it to disk as it went.'
-  clearState()
-})()
-$('dismissCrash').onclick = () => { $('crashBanner').hidden = true }
-
-let checkResult = null
-let askAnswered = false
-
-async function runCheck() {
-  document.querySelectorAll('button.ram').forEach((b) => { b.disabled = true })
-  $('runQuick').disabled = true
-  $('live').hidden = false
-  $('verdict').hidden = true
-  $('ask').hidden = true
-  askAnswered = false
-  peakHeap = 0
-  $('liveTotal').textContent = fmt(CHECK_TOTAL)
-  await hashReady
-  const hasher = sha256 ? sha256.create() : null
-  $('liveHash').textContent = hasher ? 'hashing SHA-256 as it streams' : 'hashing unavailable in this browser'
-  const started = performance.now()
-  let lastBytes = 0
-  let stalled = false
-  let lastTick = performance.now()
-  const watchdog = setInterval(() => {
-    if (lastBytes > 0 && performance.now() - lastTick > 15000) stalled = true
-  }, 2000)
-
-  saveState({ phase: 'running', bytes: 0, total: CHECK_TOTAL, ua: navigator.userAgent })
-
-  const onProgress = (bytes, ms) => {
-    lastBytes = bytes
-    lastTick = performance.now()
-    if (hasher) $('liveHash').textContent = 'hashing SHA-256 as it streams, ' + fmt(bytes) + ' hashed'
-    $('liveBytes').textContent = fmt(bytes)
-    $('livePct').textContent = '(' + ((bytes / CHECK_TOTAL) * 100).toFixed(0) + '%)'
-    $('liveElapsed').textContent = (ms / 1000).toFixed(0) + ' s'
-    $('liveRate').textContent = (bytes / MB / (ms / 1000)).toFixed(0) + ' MB/s'
-    if (bytes % (256 * MB) < MB) saveState({ bytes })
-    if (!askAnswered && $('ask').hidden && ms > 3000 && bytes < CHECK_TOTAL * 0.9) $('ask').hidden = false
-  }
-
-  const onFinish = (msg, ok) => {
-    clearInterval(watchdog)
-    clearState()
-    $('liveStatus').textContent = msg
-    $('liveStatus').className = ok ? 'sub ok' : 'sub bad'
-    $('ask').hidden = true
-    document.querySelectorAll('button.ram').forEach((b) => { b.disabled = false })
-    $('runQuick').disabled = false
-    let digest = null
-    if (hasher && ok) {
-      digest = bytesToHex(hasher.digest())
-      $('liveHash').textContent = 'SHA-256 of the ' + fmt(lastBytes) + ' streamed: ' + digest
-    }
-    finishVerdict({
-      completed: ok,
-      message: msg,
-      bytes: lastBytes,
-      seconds: (performance.now() - started) / 1000,
-      stalled,
-      digest
-    })
-  }
-
-  try {
-    const run = await startSwRun({
-      total: CHECK_TOTAL,
-      rate: CHECK_RATE,
-      name: 'check.bin',
-      shortClose: false,
-      useTransferable: transferable,
-      keepalive: true,
-      onChunk: hasher ? (chunk) => { hasher.update(chunk) } : null,
-      onProgress,
-      onFinish
-    })
-    $('liveStatus').textContent = 'streaming through the service worker (' + run.path + ')'
-  } catch (e) {
-    clearInterval(watchdog)
-    clearState()
-    $('liveStatus').textContent = 'could not start: ' + e.message
-    $('liveStatus').className = 'sub bad'
-    document.querySelectorAll('button.ram').forEach((b) => { b.disabled = false })
-    $('runQuick').disabled = false
-    finishVerdict({ completed: false, message: 'could not start: ' + e.message, bytes: 0, seconds: 0, stalled: false, digest: null })
-  }
-}
-
-document.querySelectorAll('button.ram').forEach((b) => {
-  b.onclick = () => {
-    ramGb = Number(b.dataset.gb)
-    CHECK_TOTAL = Math.round(ramGb * 1.25) * 1024 * MB
-    CHECK_RATE = 0
-    void runCheck()
-  }
-})
-$('runQuick').onclick = () => {
-  ramGb = 0
-  CHECK_TOTAL = (Number(params.get('totalMb')) || 4096) * MB
-  CHECK_RATE = (Number(params.get('rateMbs')) || 50) * MB
-  void runCheck()
-}
-
-$('askFlat').onclick = () => { askAnswered = true; checkResult = 'flat'; $('ask').hidden = true }
-$('askClimb').onclick = () => { askAnswered = true; checkResult = 'climbing'; $('ask').hidden = true }
-$('askUnsure').onclick = () => { askAnswered = true; checkResult = 'unsure'; $('ask').hidden = true }
-
-const isMac = /Mac/.test(navigator.platform || '') || /Mac OS X/.test(navigator.userAgent)
-const isWin = /Win/.test(navigator.platform || '')
-const isChromium = !!window.chrome && !/Firefox/.test(navigator.userAgent)
-$('memSteps').innerHTML = isChromium
-  ? '<li>Open the browser\'s own task manager: Chrome menu, More tools, Task manager (Shift+Esc on Windows and Linux).</li>' +
-    '<li>Find the row for this tab and read its Memory footprint.</li>'
-  : isMac
-  ? '<li>Open Activity Monitor: Command+Space, type <code>Activity Monitor</code>, Enter.</li>' +
-    '<li>Click the Memory tab and type <code>Web Content</code> in the search box.</li>' +
-    '<li>Read the Memory column of the busiest row. It refreshes every few seconds.</li>'
-  : isWin
-  ? '<li>Open Task Manager with Ctrl+Shift+Esc.</li>' +
-    '<li>Expand your browser and read the memory of the busiest process.</li>'
-  : '<li>Run <code>top</code> or your system monitor.</li>' +
-    '<li>Read the memory of the busiest browser content process.</li>'
-
-function finishVerdict(run) {
-  const caps = [
-    'sw=' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'controlled' : 'no'),
-    'transferable=' + transferable,
-    'opfs=' + (!opfsSupported ? 'no' : writableSupported ? 'createWritable' : 'syncAccessHandle')
-  ].join(' ')
-
-  let text
-  if (!run.completed) {
-    text = '<strong class="bad">The run did not finish.</strong> ' + run.message +
-      ' If the tab froze or reloaded on its own, the browser was buffering in memory.'
-  } else if (checkResult === 'flat') {
-    text = '<strong class="ok">It streams to disk.</strong> Memory stayed flat while ' + fmt(run.bytes) + ' went through, so the bytes were handed to disk as they arrived. This browser does not need a size cap on the service worker path.'
-  } else if (checkResult === 'climbing') {
-    text = '<strong class="bad">It buffers in memory.</strong> Memory tracked the counter, so the browser held the file in RAM. This browser needs a size cap even though the service worker works.'
-  } else {
-    text = '<strong class="warn">Finished, but the memory question is unanswered.</strong> ' +
-      'Completing ' + fmt(run.bytes) + ' without the tab dying is a good sign on its own, since buffering that much would normally kill it, but the memory reading is what settles it.'
-  }
-  if (run.stalled) text += ' Generation stalled for more than 15 s at one point, which usually means the browser stopped pulling.'
-  if (run.completed && ramGb && run.bytes > ramGb * 1024 * MB) {
-    text += ' <strong>' + fmt(run.bytes) + ' went through on a machine with ' + ramGb +
-      ' GB of memory, so it cannot have been held in RAM.</strong>'
-  }
-  if (run.digest) {
-    const cmd = /Mac/.test(navigator.platform || '') ? 'shasum -a 256' : 'sha256sum'
-    text += '<p>Check the saved file matches what was streamed:<br><code>' + cmd +
-      ' ~/Downloads/check.bin</code><br>should print <code>' + run.digest + '</code></p>'
-  }
-
-  $('verdictText').innerHTML = text
-  const line = [
-    'spike=' + location.host,
-    'ua=' + navigator.userAgent,
-    caps,
-    'ramGb=' + (ramGb || 'not given'),
-    'bytes=' + run.bytes,
-    'expected=' + CHECK_TOTAL,
-    'seconds=' + run.seconds.toFixed(0),
-    'mbPerSecond=' + (run.seconds ? (run.bytes / MB / run.seconds).toFixed(0) : '0'),
-    'completed=' + run.completed,
-    'memory=' + (checkResult || 'unanswered'),
-    'stalled=' + run.stalled,
-    'sha256=' + (run.digest || 'n/a'),
-    'note=' + run.message
-  ].join('\n')
-  $('resultLine').textContent = line
-  $('verdict').hidden = false
-}
-
-$('copy').onclick = async () => {
-  try {
-    await navigator.clipboard.writeText($('resultLine').textContent)
-    $('copy').textContent = 'Copied'
-    setTimeout(() => { $('copy').textContent = 'Copy result' }, 2000)
-  } catch (e) {
-    const r = document.createRange()
-    r.selectNodeContents($('resultLine'))
-    const sel = getSelection()
-    sel.removeAllRanges()
-    sel.addRange(r)
-  }
-}
-
-// ---- advanced: A. service worker ---------------------------------------
-let swAbort = null
-$('startSw').onclick = async () => {
-  try {
-    const total = Number($('totalMb').value) * MB
-    const rate = Number($('rateMbs').value) * MB
-    $('startSw').disabled = true
-    $('abortSw').disabled = false
-    const run = await startSwRun({
-      total,
-      rate,
-      name: 'test.bin',
-      shortClose: $('shortClose').checked,
-      useTransferable: $('transferable').checked,
-      keepalive: $('keepalive').checked,
-      onProgress: (bytes, ms) => {
-        $('swBytes').textContent = fmt(bytes) + ' (' + bytes + ')'
-        $('swElapsed').textContent = (ms / 1000).toFixed(0) + ' s'
-      },
-      onFinish: (msg) => {
-        $('swStatus').textContent = msg
-        $('startSw').disabled = false
-        $('abortSw').disabled = true
-      }
-    })
-    swAbort = run.abort
-    $('swStatus').textContent = 'download started via iframe (' + run.path + ')'
-  } catch (e) {
-    $('swStatus').textContent = 'failed to start: ' + e.message
-    $('swStatus').className = 'bad'
-    $('startSw').disabled = false
-    $('abortSw').disabled = true
-  }
-}
-$('abortSw').onclick = () => { if (swAbort) swAbort() }
-
-// ---- advanced: B. OPFS spool -------------------------------------------
-let opfsAbort = null
-$('startOpfs').onclick = async () => {
-  if (!opfsSupported) return
-  $('startOpfs').disabled = true
-  $('abortOpfs').disabled = false
-  const total = Number($('totalMb').value) * MB
-  const rate = Number($('rateMbs').value) * MB
-  try {
-    const root = await navigator.storage.getDirectory()
-    const handle = await root.getFileHandle('spool.bin', { create: true })
-    const g = makeGenerator(total, rate, (bytes, ms) => {
-      $('opfsBytes').textContent = fmt(bytes) + ' (' + bytes + ')'
-      $('opfsElapsed').textContent = (ms / 1000).toFixed(0) + ' s'
-    })
-    opfsAbort = () => g.abort(new Error('aborted by user'))
-    if (writableSupported) {
-      const w = await handle.createWritable({ keepExistingData: false })
-      $('opfsStatus').textContent = 'writing to OPFS with createWritable'
-      try {
-        for await (const chunk of g.gen()) await w.write(chunk)
-        await w.close()
-      } catch (e) {
-        await w.abort(e).catch(() => {})
-        throw e
-      }
-    } else {
-      $('opfsStatus').textContent = 'writing to OPFS via sync access handle in a worker'
-      await spoolViaWorker(g, total)
-    }
-    const file = await handle.getFile()
-    $('opfsStatus').textContent = 'spooled ' + fmt(file.size) + ' to disk, offering download'
-    const url = URL.createObjectURL(file)
-    const a = document.createElement('a')
-    a.href = url; a.download = 'spool.bin'; document.body.appendChild(a); a.click(); a.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 60000)
-    $('opfsStatus').textContent += '; download triggered from the OPFS file'
-  } catch (e) {
-    $('opfsStatus').textContent = 'failed: ' + e.message
-    $('opfsStatus').className = 'bad'
-  } finally {
-    $('startOpfs').disabled = false
-    $('abortOpfs').disabled = true
-  }
-}
-$('abortOpfs').onclick = () => { if (opfsAbort) opfsAbort() }
-
-function spoolViaWorker(g, total) {
-  const code = `
-    let handle, offset = 0
-    onmessage = async (e) => {
-      const m = e.data
-      if (m.type === 'open') {
-        const root = await navigator.storage.getDirectory()
-        const fh = await root.getFileHandle('spool.bin', { create: true })
-        handle = await fh.createSyncAccessHandle()
-        handle.truncate(0)
-        postMessage({ type: 'ready' })
-      } else if (m.type === 'chunk') {
-        handle.write(new Uint8Array(m.chunk), { at: offset }); offset += m.chunk.byteLength
-        postMessage({ type: 'written' })
-      } else if (m.type === 'close') {
-        handle.flush(); handle.close(); postMessage({ type: 'closed' })
-      }
-    }`
-  const worker = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })))
-  const ask = (msg, transfer, reply) => new Promise((resolve) => {
-    worker.onmessage = (e) => { if (e.data.type === reply) resolve() }
-    worker.postMessage(msg, transfer || [])
-  })
-  return (async () => {
-    await ask({ type: 'open' }, [], 'ready')
-    for await (const chunk of g.gen()) await ask({ type: 'chunk', chunk: chunk.buffer }, [chunk.buffer], 'written')
-    await ask({ type: 'close' }, [], 'closed')
-    worker.terminate()
-  })()
-}
-</script>
+<main>
+  <header>
+    <a class="wordmark" href="https://github.com/ErykKul/zip-stream-spike">DATAVERSE <span>/ BROWSER CHECK</span></a>
+    <h1>A big ZIP.<br>A simple browser check.</h1>
+    <p class="intro">Can this browser save a ZIP larger than your computer’s memory? Choose your RAM size to find out.</p>
+  </header>
+  <aside id="previous-run" class="notice" hidden>
+    <strong>A previous run was interrupted.</strong><p id="previous-detail"></p>
+    <button id="dismiss-previous" class="text-button">Dismiss</button>
+  </aside>
+  <section class="card" aria-labelledby="pick-heading">
+    <div class="section-label">01 / CHOOSE YOUR MEMORY</div>
+    <h2 id="pick-heading">How much RAM does this computer have?</h2>
+    <div class="ram-grid" id="ram-options">
+      <button class="ram-button" data-ram="4"><strong>4 GB</strong><span>Save 5 GiB</span></button>
+      <button class="ram-button" data-ram="8"><strong>8 GB</strong><span>Save 9 GiB</span></button>
+      <button class="ram-button" data-ram="16"><strong>16 GB</strong><span>Save 18 GiB</span></button>
+      <button class="ram-button" data-ram="24"><strong>24 GB</strong><span>Save 27 GiB</span></button>
+      <button class="ram-button" data-ram="32"><strong>32 GB</strong><span>Save 35 GiB</span></button>
+      <button class="ram-button" data-ram="48"><strong>48 GB</strong><span>Save 53 GiB</span></button>
+      <button class="ram-button" data-ram="64"><strong>64 GB</strong><span>Save 70 GiB</span></button>
+      <button class="ram-button" data-ram="96"><strong>96 GB</strong><span>Save 105 GiB</span></button>
+      <button class="ram-button" data-ram="128"><strong>128 GB</strong><span>Save 140 GiB</span></button>
+    </div>
+    <p class="small">Choose your actual RAM size, or the next size up. Allow a little more free disk space than the size shown. Sizes are ZIP payload in GiB (1,024³ bytes).</p>
+    <div class="quick-check"><button id="smoke-test" class="secondary">Try a small ZIP first</button><span>64 MiB · checks the setup</span></div>
+    <p id="boot-status" class="small" role="status">Loading the download test…</p>
+  </section>
+  <section id="run-panel" class="card" aria-labelledby="status-heading" hidden>
+    <div class="section-label">02 / DOWNLOAD & VERIFY</div>
+    <h2 id="status-heading" tabindex="-1">Preparing</h2>
+    <p id="status-detail" role="status"></p>
+    <progress id="progress" value="0" max="1" aria-label="Download progress"></progress>
+    <div class="metrics"><span id="bytes-progress">0 MiB</span><span id="time-progress">0:00</span></div>
+    <p id="file-name" class="small filename"></p>
+    <div class="actions"><button id="cancel-run" class="secondary">Stop test</button></div>
+    <div id="verify-panel" class="verify-panel" hidden>
+      <p>When the browser’s download is complete, choose the saved ZIP. The check reads it in small pieces and verifies its contents.</p>
+      <label class="primary file-button">Choose saved ZIP to verify<input id="verify-file" type="file" accept=".zip,application/zip"></label>
+      <p class="small">Keep the download’s suggested filename so the result belongs to this run. The file stays on your computer; verification needs no extra copy or extraction.</p>
+    </div>
+  </section>
+  <section id="result-panel" class="card result" aria-labelledby="result-heading" hidden>
+    <div class="section-label">03 / KEEP YOUR RESULT</div>
+    <h2 id="result-heading">Result</h2><p id="result-summary"></p>
+    <p class="small">Copy this result for Eryk, then repeat in your next browser. Delete the test ZIP when you’re done.</p>
+    <div class="actions"><button id="copy-result" class="primary">Copy result</button><button id="save-result" class="secondary">Save result</button><span id="copy-status" role="status"></span></div>
+    <details>
+      <summary>Result details & optional memory observation</summary>
+      <label class="observation" for="memory-observation">If you watched memory in your system or browser task manager:</label>
+      <select id="memory-observation"><option value="not-measured">I did not measure memory</option><option value="roughly-flat">Memory stayed roughly flat</option><option value="growing">Memory grew with the download</option><option value="unsure">I could not tell</option></select>
+      <p class="small">Completing a ZIP larger than RAM is useful evidence for this browser and machine. It does not by itself prove flat memory use: virtual memory and browser disk caches can also help.</p>
+      <pre id="result-json" tabindex="0"></pre>
+    </details>
+  </section>
+  <details class="about">
+    <summary>What does this check test?</summary>
+    <p>This page runs the ZIP download engine from the Dataverse frontend. It creates test data locally, feeds it through the same range-reading, checksum, ZIP creation, and browser-saving code, then checks the ZIP you saved.</p>
+    <p>No dataset or login is needed, and nothing is uploaded. A pass applies to the browser and machine you tested. It does not test a Dataverse installation’s network, permissions, or storage configuration.</p>
+    <p>Keep this tab open and your computer awake during the check. If asked where to save the download, choose a folder on disk. The page cannot read your Downloads folder automatically, so it asks you to choose the finished file before reporting a verified result.</p>
+    <p>A small ZIP checks the setup. The RAM buttons exercise archives larger than your stated memory, including individual files larger than 4 GiB.</p>
+    <p id="source-version" class="small"></p>
+    <p><a href="https://github.com/ErykKul/zip-stream-spike#readme">Source and test notes</a> · <a href="https://github.com/IQSS/dataverse-frontend/pull/898">Dataverse frontend PR</a></p>
+  </details>
+  <footer>Test in Edge, Opera, Chrome, Chromium, Firefox, or Safari. Report the result you observe; browser support is what we are measuring.</footer>
+</main>
+<noscript><p>This test needs JavaScript enabled.</p></noscript>
+<script type="module" src="app.js?v=20260914-1"></script>
 </body>
 </html>

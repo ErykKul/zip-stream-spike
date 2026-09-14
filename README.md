@@ -1,81 +1,115 @@
-# Streaming download spike
+# Large ZIP browser check
 
-Standalone test page for the streaming zip download design in
-IQSS/dataverse-frontend#898. Hosted at <https://erykkul.github.io/zip-stream-spike/>.
+**Open [the test page](https://erykkul.github.io/zip-stream-spike/) in the browser
+you want to test. Choose your computer’s RAM size and let it download.**
 
-## Running the check
+This experiment tests the ZIP downloader used by
+[Dataverse frontend PR #898](https://github.com/IQSS/dataverse-frontend/pull/898).
+The page runs the actual frontend React download hook, ZIP encoder, and
+service-worker sink. It generates synthetic file data locally, so no Dataverse
+server, account, large source file, or upload is needed.
 
-Press the button for this machine's memory: 8, 16, 32, 64 or 128 GB. The page
-then streams **1.25x that much** through a service worker to your Downloads
-folder, hashing it with SHA-256 as it goes, and shows a live counter.
+## Run a test
 
-That size is the point. A browser that held the file in memory could not finish
-a download larger than the machine's RAM, so completing it is the proof, and it
-is proof that survives the hashing too, since a hash that needed the whole file
-buffered would fail for the same reason. At the end the page prints the SHA-256
-of what it streamed along with the command to check the saved file, so you can
-confirm the bytes on disk are the bytes that went through.
+1. Choose the button matching your installed RAM, or the next size up. On a
+   **32 GB RAM** machine, choose **32 GB**: it creates a ZIP containing **35 GiB**
+   of data. Make sure the disk has enough free space. A small 64 MiB setup check
+   is available too.
+2. Leave the page open and the computer awake. If the browser asks where to save
+   the ZIP, choose a folder on disk and keep its suggested unique filename.
+   Wait for the browser download to finish.
+3. Click **Choose saved ZIP to verify**, and select the completed download.
+   The page checks the archive structure and every entry’s SHA-256 and CRC-32
+   using small reads in a worker. It needs no extraction or extra copy.
+4. **Copy result** or **Save result**, send it to the person collecting results,
+   and repeat in the next browser. Delete the ZIP when finished.
 
-While it runs, the page also asks you to read the browser's memory in Activity
-Monitor (macOS) or the browser's own task manager (Chromium) and answer with one
-of three buttons. Press **Copy result** at the end and send the block back.
+| RAM button | ZIP payload |
+| --- | --- |
+| 4 GB | 5 GiB |
+| 8 GB | 9 GiB |
+| 16 GB | 18 GiB |
+| 24 GB | 27 GiB |
+| 32 GB | 35 GiB |
+| 48 GB | 53 GiB |
+| 64 GB | 70 GiB |
+| 96 GB | 105 GiB |
+| 128 GB | 140 GiB |
 
-**Quick 4 GB check** exercises the plumbing without proving anything about
-memory. `?totalMb=512&rateMbs=50` overrides its size and rate.
+The payload is approximately 9% above the selected memory size, rounded up to
+whole GiB. ZIP headers add a little more. A GiB is 1,024³ bytes. Runs include
+5 GiB entries to exercise ZIP64 file sizes and archive offsets.
 
-Two things are recorded without you doing anything. If the tab dies mid-run,
-reopening the page reports how far it got, which is itself the answer. And if
-the browser stops pulling for more than 15 seconds, the result says so.
+Try Edge, Opera, Chrome, Chromium, Firefox, and actual Safari on macOS where
+available. Engine similarity does not replace testing each installed browser.
+An optional memory observation can be added to the result. The page records
+the full user agent, frontend commit, engine build, selected size, transfer path,
+duration, and saved-file verification. Results stay in the browser; they are not
+sent to a server. The latest interrupted run is retained when storage is available.
 
-Do not use the file size in the download list. Browsers pre-allocate the file to
-its full announced `Content-Length`, and some do not refresh the panel while it
-is open, so that number proves nothing either way.
+## What counts as a result?
 
-`vendor/noble-hashes/` is a copy of the SHA-2 modules from
-[@noble/hashes](https://github.com/paulmillr/noble-hashes) 2.4.0, the same
-library the frontend uses, so the page hashes incrementally exactly as the real
-implementation does.
+**“Ready to verify” means the browser consumed the stream.** A web page cannot
+automatically inspect the browser’s Downloads folder or observe its final disk
+flush. Generation reaching 100%, an apparent file size, or a service-worker
+capability check is not a verified download.
 
-Everything else lives under **Advanced**, collapsed by default:
+**“ZIP verified” means the saved file has the expected structure and contents.**
+A verified archive larger than physical RAM is evidence that this browser and
+machine can complete this pipeline at that size. It does not prove a particular
+peak RAM bound, absence of buffering, or absence of swap/disk backing. The
+optional browser heap reading excludes other browser processes and caches.
 
-- A: service worker stream (transferable stream or MessageChannel), keepalive ping, optional early close
-- B: OPFS spool (createWritable, or a sync access handle in a worker where that is missing)
+A failed or interrupted run remains inconclusive about its cause. The page
+does not diagnose crashes as out-of-memory failures. A small test establishes
+correctness at its size, not large-download support.
 
-`run.mjs`, `run_selenium.py` and `run_firefox.py` drive the Advanced controls in
-Chromium or Firefox on Linux and report file growth and renderer memory.
+## How closely does this match Dataverse?
 
-## Results, Linux, 2026-09-11
+See [PROVENANCE.md](PROVENANCE.md) and [provenance.json](provenance.json) for the
+exact source commit, file hashes, dependency versions, and adaptations. The
+production code is copied unchanged into `vendor/frontend/`; the build refuses
+changed snapshots. The only data-source substitution is a narrowly scoped
+synthetic `fetch` handler returning streamed range responses.
 
-Chromium 140 (system, via Selenium and Chrome's own download manager) and Firefox 155 (system, via Selenium). Playwright's Firefox build cannot run service workers, so it was not used for the SW tests.
+The default run keeps the frontend’s transport selection, incremental hashes,
+10 MiB ranges, `client-zip` encoder, MessageChannel fallback, keepalive, and
+error handling. The worker is under `reusable-components/`, outside the page’s
+scope, matching the embedded JSF layout. If the frontend chooses its Blob
+fallback, the result records it and the existing 2 GiB cap applies. There is no
+OPFS alternative, custom ZIP writer, or hidden large-memory fallback added here.
 
-| Check | Chromium | Firefox |
-|---|---|---|
-| SW stream, transferable stream, 1 GB at 1 MB/s, keepalive on | complete, file visible on disk from the first sample and growing | complete, `.part` visible from t=0 and growing |
-| Same, keepalive off | complete after 17 min | stalls at ~30 s; Firefox finalises a 30 MB `test.bin` as complete |
-| MessageChannel path (forced) | complete | complete |
-| Stream errored mid-run (abort) | download failed, partial file removed | download failed, `.part` left behind |
-| Stream closed early, half of announced Content-Length | file renamed to `test.bin`, reported complete | file renamed to `test.bin`, reported complete |
-| OPFS spool | `createWritable`, then download from the disk-backed File | `createWritable`, same |
-| Renderer memory over 1 GB | 434 to 498 MB, flat | 610 MB, warm-up peak 1040 MB in the first 4 min, then 625 to 680 MB, flat |
+This test does **not** establish behavior against real Dataverse servers:
+authentication, storage CORS, S3 redirects, URL expiry, tree enumeration, network
+failures, background-tab throttling, and sleep/wake need separate checks.
 
-## Results, macOS Safari, 2026-09-11
+## Development and publishing
 
-Safari 18.2 (`Version/18.2 Safari/605.1.15`) on macOS, one-button check, 4 GB at 50 MB/s.
+The repository is a static GitHub Pages site served from the root of `main`.
+Generated browser bundles are committed so the published test needs no CDN or
+runtime package installation. The upstream source and dependency licenses are
+retained with the snapshot and bundles.
 
-| Check | Result |
-|---|---|
-| Service worker registered and controlling | yes |
-| Transferable `ReadableStream` | **no**, the MessageChannel path is what Safari uses |
-| OPFS | `createSyncAccessHandle` only, no `createWritable`, so the worker path |
-| 4 GB through the service worker | completed in 82 s, no stall, stream closed cleanly |
-| Download list during the run | listed with a normal, advancing size indicator |
+```sh
+npm install
+npm run build
+npm test
+python3 -m http.server 8765
+```
 
-Desktop Safari therefore needs no size cap on the service worker path, but it
-does need the MessageChannel fallback and, if anything ever spools to OPFS
-there, a sync access handle in a worker.
+Open `http://localhost:8765/`. In the combined Dataverse workspace the build can
+use the sibling frontend’s installed dependencies, with exact version checks.
+To update the source snapshot, follow [PROVENANCE.md](PROVENANCE.md).
 
-Consequences for the implementation:
+[Browser smoke testing](scripts/TESTING.md) covers real downloads on Chromium,
+both transport paths, independent ZIP validation, and rejection of corruption
+and truncation. Its optional ZIP64 run exercises an entry larger than 4 GiB.
+Smoke-test success is not a substitute for each tester’s larger-than-RAM run.
 
-- The keepalive is mandatory. Firefox kills the worker at about 30 s and turns the truncation into a "complete" download.
-- Content-Length is not a safety net in either browser for service-worker responses: a cleanly closed short stream is accepted as complete. The only protection against a truncated zip is to never close the stream cleanly on failure; error it, and both browsers mark the download failed.
-- Content-Length still gives the download manager a progress bar, so it is worth sending when exact.
+## Earlier experiment
+
+The September 11 spike generated raw `.bin` streams and explored OPFS. Its
+results are retained in [HISTORY.md](HISTORY.md), with their limits made explicit.
+Those observations are not results for this ZIP harness. The old scripts remain
+available in Git history at `7351fc3`; their unused controls and copies have
+been removed from the active page.
