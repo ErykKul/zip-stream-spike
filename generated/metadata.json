@@ -1,9 +1,9 @@
 {
   "repository": "https://github.com/IQSS/dataverse-frontend",
-  "sourceCommit": "fc73d4eced3f46583012f787973d0f4c437a8c54",
+  "sourceCommit": "61c6b12451f369efe22cef58a99a24d6b2ded85f",
   "sourceFiles": {
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-    "src/sections/dataset/dataset-files/files-tree/useStreamingZipDownload.ts": "53a9fcd8ea256a3d457d9c380de4adef3d45d56d894184050168fa92839a0b78",
+    "src/sections/dataset/dataset-files/files-tree/useStreamingZipDownload.ts": "2118b3296b0bb0a0fd0e48e6a3939e6a4be395195d4a64fc9aedf13d3ebb9d21",
     "src/sections/dataset/dataset-files/files-tree/zipStreamSink.ts": "012f18f6430c093aa85ffd04ba72f045ed44b1c054c26c98052141302ca469db",
     "src/sections/dataset/dataset-files/files-tree/zipDownloadLimits.ts": "646ded2c0b65649479beeffa51803bda954c9df0875a67e3b090ec6a4a704da7",
     "src/sections/dataset/dataset-files/files-tree/format.ts": "32081ed6f7f34eb96308c37eb0ab7651e6a801b76e6dd7ff15898a2118ddd02d",
@@ -24,12 +24,12 @@
     "esbuild": "0.25.10"
   },
   "clientZipVersion": "2.5.0",
-  "frontendMechanismId": "5821e415b808e43c",
+  "frontendMechanismId": "37059c310dcca21e",
   "pattern": "xorshift32-6d2b79f5-repeat-256KiB-v1",
   "rangeBytes": 10485760,
   "sourceChunkBytes": 262144,
   "maximumEntryBytes": 5368709120,
   "workerPath": "reusable-components/zip-download-sw.js",
   "completionMeaning": "Source stream consumed; saved file must be verified separately.",
-  "buildId": "b247577d88111321"
+  "buildId": "87b57ddca34b6944"
 }

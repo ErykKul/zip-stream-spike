@@ -9,7 +9,7 @@ export const scenarios = Object.freeze({
   recovery: Object.freeze({
     id: 'recovery', title: 'Retry and resume', bytes: 64 * MIB,
     expectedDurationMs: 60_000, maxDurationMs: 180_000,
-    description: 'One simulated HTTP 503, a broken response at 3 MiB, manual Retry, then 45 seconds of source silence.'
+    description: 'One simulated HTTP 503, a broken response at 3 MiB, frontend automatic retry, then 45 seconds of source silence.'
   }),
   background: Object.freeze({
     id: 'background', title: 'Background worker lifetime', bytes: 64 * MIB,
@@ -144,11 +144,9 @@ export function createScenario(id, {
       signal?.throwIfAborted()
       if (includesRecovery && fileIndex === 0 && !sentBodyError && offset >= BODY_ERROR_OFFSET) {
         sentBodyError = true
-        setPhase('interrupted', id === 'complete'
-          ? 'The synthetic response broke at 3 MiB. The test will request Retry after the frontend pauses.'
-          : 'The synthetic response broke at 3 MiB. Wait for the frontend to pause, then choose Retry.')
+        setPhase('interrupted', 'The synthetic response broke at 3 MiB. Waiting for the frontend to retry automatically.')
         record('body-error', { fileIndex, offset })
-        throw new Error('Simulated response-body interruption at 3 MiB. Choose Retry to resume.')
+        throw new Error('Simulated response-body interruption at 3 MiB.')
       }
       const silenceAt = id === 'cancel' ? BODY_ERROR_OFFSET : SILENCE_OFFSET
       if (!sentSilence && fileIndex === 0 && offset >= silenceAt) {
@@ -215,9 +213,7 @@ export function createScenario(id, {
       if (state.status === lastHookStatus) return
       lastHookStatus = state.status
       if (!timedOut && state.status === 'paused') {
-        setPhase('paused', id === 'complete'
-          ? 'The frontend paused after the simulated failure. The test will request Retry automatically.'
-          : 'The frontend paused after the simulated failure. Choose Retry to continue from the delivered offset.')
+        setPhase('paused', 'The frontend exhausted automatic recovery. A manual decision is required.')
       }
       record('engine-state', { status: state.status, bytesDone: state.bytesDone }, false)
     },

@@ -81,8 +81,9 @@ synthetic `fetch` handler returning streamed range responses.
 
 The default run keeps the frontend’s transport selection, incremental hashes,
 10 MiB ranges, `client-zip` encoder, MessageChannel fallback, and keepalive.
-The harness injects source failures and invokes the actual frontend Retry and
-Cancel actions automatically; it does not replace their implementation. The
+The harness injects source failures and checks that the frontend retries them
+automatically, without invoking Retry on its behalf. It invokes the actual
+Cancel action for the stopping check. The
 worker is under `reusable-components/`, outside the page’s
 scope, matching the embedded JSF layout. If the frontend chooses its Blob
 fallback, the complete check stops as inconclusive because it requires streaming.
@@ -125,8 +126,8 @@ Each RAM button performs the same sequence:
    service worker. Cancel while its source read is waiting and check both the
    frontend abort signal and consumer failure. This probe creates no saved file.
 2. Start the selected large ZIP. Return one simulated HTTP 503 and interrupt a
-   response after 3 MiB. The harness invokes the actual Retry action and checks
-   the resumed request starts at exactly 3 MiB.
+   response after 3 MiB. The frontend retries automatically; the harness checks
+   the resumed request starts at exactly 3 MiB without a Retry decision.
 3. Pause source bytes for 45 seconds, then transfer at the pipeline's normal
    speed. Before the final chunk, keep the stream open until its active source
    lifetime reaches **12 minutes**. A naturally longer transfer needs no extra
@@ -137,7 +138,7 @@ Each RAM button performs the same sequence:
    automatically, so this final file selection is required.
 
 “Browser ZIP check passed” requires all automatic checks and saved-file
-integrity to succeed. It includes the injected faults, automatic decisions, exact resumed
+integrity to succeed. It includes the injected faults, frontend automatic recovery, exact resumed
 range, source pause, lifetime evidence, and visibility changes. Ordinary range
 request logs are sampled in large runs; exact request counters are retained.
 

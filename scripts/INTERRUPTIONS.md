@@ -42,7 +42,7 @@ path as GitHub Pages.
 
 This exercises the same `startSuite` entry point used by the RAM buttons, with a
 64 MiB payload so the automation checks take about 12 minutes. It checks automatic
-source cancellation, HTTP and mid-body failures, automatic Retry, exact resumed
+source cancellation, HTTP and mid-body failures, frontend automatic retry (without a harness click), exact resumed
 offsets, source silence, and a final-chunk hold until the stream has lived for at
 least 12 minutes. It verifies the actual saved file afterwards. The automation
 has a 15-minute cap and does not establish support for a payload larger than RAM.

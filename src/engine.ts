@@ -46,12 +46,6 @@ function mount() {
 function report(run: any, state: any) {
   run.lastHookState = state
   run.scenario?.hookState(state)
-  if (run.automaticRetry && state.status === 'paused' && !run.retryScheduled) {
-    run.retryScheduled = true
-    run.retryTimer = setTimeout(() => {
-      if (active === run && run.lastHookState?.status === 'paused') retry({ automatic: true })
-    }, 1000)
-  }
   run.onState?.({
     ...state,
     filename: run.filename,
@@ -182,7 +176,6 @@ export async function start({ bytes, onState, transferStreams, scenario, cancell
     diagnostic: transferStreams !== undefined || scenario !== undefined,
     transport: 'initializing', cancelled: false, cleanup: () => {},
     scenario: null, lastHookState: null,
-    automaticRetry: scenario === 'complete', retryScheduled: false, retryTimer: undefined,
     zipBytes: Number(predictLength(entries.map(({ path, size }) => ({ name: path, size }))))
   }
   active = run
@@ -192,7 +185,6 @@ export async function start({ bytes, onState, transferStreams, scenario, cancell
   run.cleanup = () => {
     restoreFetch()
     clearInterval(heartbeat)
-    clearTimeout(run.retryTimer)
     document.removeEventListener('visibilitychange', visibilityChanged)
     run.scenario?.dispose()
   }

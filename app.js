@@ -61,7 +61,7 @@ function showResult() {
   } else if (activeStatuses.has(result.status) && result.status !== 'verifying') {
     $('result-heading').textContent = result.status === 'checking' ? 'Checking stopping' : result.status === 'paused' && !result.suite ? 'Waiting for Retry' : 'Test in progress'
     $('result-summary').textContent = result.suite
-      ? 'The automatic checks are running. Keep this tab open and your computer awake. The test requests any needed retry itself.'
+      ? 'The automatic checks are running. Keep this tab open and your computer awake. The frontend retries the simulated interruptions automatically.'
       : result.status === 'paused'
       ? 'The source response was interrupted. Click Retry download above to continue from the saved position.'
       : 'The download is still running. A result is available after it finishes and the saved ZIP is checked.'
@@ -122,7 +122,7 @@ function handleState(state, id) {
   $('time-progress').textContent = duration(state.elapsedMs)
   $('progress').value = Math.min(1, (state.bytesDone || 0) / result.targetPayloadBytes)
   $('file-name').textContent = state.filename || ''
-  $('retry-run').hidden = !(result.scenario && result.scenario.id !== 'complete' && state.status === 'paused')
+  $('retry-run').hidden = !(result.scenario && !result.suite && state.status === 'paused')
   if (result.scenario) {
     $('scenario-progress').textContent = `${result.scenario.title}: ${result.scenario.detail || result.scenario.phase}. ${duration(result.scenario.elapsedMs)} elapsed; limit ${duration(result.scenario.maxDurationMs)}.`
     if (result.scenario.timedOut || result.scenario.outcome === 'inconclusive') {
@@ -138,11 +138,20 @@ function handleState(state, id) {
     }
   }
   if (result.scenario && state.status === 'paused') {
+    if (result.suite) {
+      result.status = 'failed'
+      result.suite.phase = 'failed'
+      result.error = 'The frontend exhausted automatic recovery during the simulated interruption. Save the result for investigation.'
+      $('status-heading').textContent = 'Automatic recovery did not pass'
+      $('status-detail').textContent = result.error
+      engine.cancel()
+      setBusy(false)
+      showResult()
+      return
+    }
     setBusy(true)
-    $('status-heading').textContent = result.scenario.id === 'complete' ? 'Checking automatic recovery' : 'Retry needed'
-    $('status-detail').textContent = result.scenario.id === 'complete'
-      ? 'The test interrupted a response and is requesting Retry. No action is needed.'
-      : 'The check interrupted a file response. Click Retry download to exercise the frontend’s recovery from the last delivered byte.'
+    $('status-heading').textContent = 'Retry needed'
+    $('status-detail').textContent = 'Automatic retries were exhausted. Click Retry download to try again from the last delivered byte.'
     showResult()
     return
   }
@@ -162,7 +171,8 @@ function handleState(state, id) {
         cancellation: result.suite.cancellation?.passed === true,
         retryAndResume: events.some((event) => event.type === 'http-error' && event.status === 503)
           && events.some((event) => event.type === 'body-error')
-          && events.some((event) => event.type === 'automation-retry')
+          && !events.some((event) => ['automation-retry', 'user-retry'].includes(event.type)
+            || (event.type === 'engine-state' && event.status === 'paused'))
           && events.some((event) => event.type === 'resumed-request' && event.matched),
         sourceSilence: events.some((event) => event.type === 'source-silence-end' && event.actualDurationMs >= 45000),
         streamLifetime: result.scenario?.outcome === 'source-complete'
@@ -223,7 +233,7 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
     diagnostic: scenario || (transferStreams === false ? 'forced-message-channel' : false),
     scenario: scenarioSpec ? { ...scenarioSpec, bytes: totalBytes, phase: 'preparing', elapsedMs: 0, events: [] } : undefined,
     suite: suite ? {
-      id: 'automatic-browser-check-v1', phase: 'cancellation-check', passed: false,
+      id: 'automatic-browser-check-v2', phase: 'cancellation-check', passed: false,
       cancellation: { passed: false, status: 'pending' },
       notCovered: [
         'Cancellation using the browser download-manager controls',
@@ -258,7 +268,7 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
       ? 'Once the download starts, use another tab for about 12 minutes. Leave this tab open and the computer awake, with developer tools closed. Return to verify the small ZIP; visibility changes are recorded.'
       : scenario === 'cancel'
         ? 'During the pause, try reloading and choose to stay when warned. Then stop the test here OR cancel in the browser download list. Record what you tried and what the download list reported. Repeat this small check for a different action.'
-        : 'This check injects a failed response, interrupts a file body, and pauses data for 45 seconds. Click Retry when prompted, then verify the completed ZIP. The network remains connected.'
+        : 'This check injects a failed response, interrupts a file body, and pauses data for 45 seconds. The frontend retries automatically; verify the completed ZIP afterward. The network remains connected.'
   }
   $('run-panel').hidden = false
   $('status-heading').textContent = 'Preparing'
@@ -570,7 +580,7 @@ const ready = (async () => {
         return
       }
     }
-    engine = await import('./engine.js?v=20260914-4')
+    engine = await import('./engine.js?v=20260914-6')
     $('source-version').textContent = `Frontend source: ${engine.metadata.sourceCommit}. Test build: ${engine.metadata.buildId}.`
     $('boot-status').textContent = 'Ready. Choose a memory size to begin.'
     setBusy(false)

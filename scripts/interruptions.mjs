@@ -151,13 +151,13 @@ async function recovery(browser, base, directory, forced) {
   const { context, page, downloadPromise, errors } = current
   try {
     await waitForEvent(page, 'body-error')
-    console.log(`${forced ? 'MessageChannel' : 'automatic'} recovery: response interrupted; awaiting real Retry control`)
-    await page.waitForFunction(() => window.spikeTest.getResult()?.engineStatus === 'paused', null, { polling: 100 })
+    console.log(`${forced ? 'MessageChannel' : 'automatic'} recovery: response interrupted; awaiting frontend automatic retry`)
     assert.equal((await snapshot(page)).scenario.events.filter((event) => event.type === 'http-error').length, 1)
-    await page.locator('#retry-run').click()
     const resumed = await waitForEvent(page, 'resumed-request')
     assert.equal(resumed.from, 3 * 1024 ** 2)
     assert.equal(resumed.matched, true)
+    assert.ok(!(await snapshot(page)).scenario.events.some((event) =>
+      ['automation-retry', 'user-retry'].includes(event.type) || (event.type === 'engine-state' && event.status === 'paused')))
     await waitForEvent(page, 'source-silence-start')
     console.log(`${forced ? 'MessageChannel' : 'automatic'} recovery: resumed exactly at 3 MiB; waiting through 45-second source silence`)
     // This probe disrupts browser networking while the source is deliberately
@@ -363,7 +363,8 @@ async function backgroundWebDriver(base, directory, forced) {
       assert.ok(result.suite.cancellation.result.scenario.events.some((event) => event.type === 'frontend-fetch-aborted' && event.pendingWaitMs > 0), 'Cancellation did not abort the actual frontend fetch during its pending source read')
       assert.equal(result.scenario.id, 'complete')
       assert.ok(result.downloadElapsedMs >= 720_000, 'The full 12-minute lifetime was not observed')
-      assert.ok(result.scenario.events.some((event) => event.type === 'automation-retry'), 'The complete suite did not request Retry automatically')
+      assert.ok(!result.scenario.events.some((event) => ['automation-retry', 'user-retry'].includes(event.type)
+        || (event.type === 'engine-state' && event.status === 'paused')), 'Recovery required a Retry decision instead of frontend automatic recovery')
       assert.ok(result.scenario.events.some((event) => event.type === 'resumed-request' && event.from === 3 * 1024 ** 2 && event.matched), 'The complete suite did not resume at the delivered offset')
     }
     delete report.inProgress

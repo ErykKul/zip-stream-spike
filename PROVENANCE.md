@@ -58,7 +58,7 @@ normal RAM buttons do not override the production transport decision.
 
 The RAM buttons call `startSuite`, which first runs a 64 MiB cancellation check,
 then `start({scenario: 'complete', ...})` with the selected payload. This adds
-source errors, automatic Retry, 45 seconds of silence and a final-chunk hold to
+source errors, frontend automatic retry, 45 seconds of silence and a final-chunk hold to
 at least 12 minutes, with a 45-minute source ceiling. `checkCancellation` invokes
 the actual hook cancellation during a pending source read. A pass requires the
 frontend fetch AbortSignal to abort while that read is pending; disposing the
@@ -150,3 +150,9 @@ frontend commit and run `npm run sync-frontend -- ../dataverse-frontend`, then
 rebuild, test, and review the source/provenance changes. The sync script refuses
 uncommitted modifications in its selected source files. Update this document's
 commit reference when changing that snapshot.
+
+The complete suite no longer invokes Retry for the frontend. It requires exact
+byte resumption with no paused/manual-decision state; exhausted automatic
+recovery fails the check. Production defaults remain three retries and a 500 ms
+delay. Earlier v1 suite reports included a harness-invoked Retry and remain
+evidence for that older behavior.

@@ -116,3 +116,18 @@ and blocked the main stream. The current internal consumer avoids that gate
 without changing the main ZIP's native download path or granting permissions.
 
 See [interruption automation](INTERRUPTIONS.md) for commands and boundaries.
+
+## Frontend automatic response-body retries
+
+Frontend `61c6b12451f369efe22cef58a99a24d6b2ded85f`, engine
+`87b57ddca34b6944`: the frontend now retries broken or short ranged bodies using
+its existing retry limit and delay (three retries, 500 ms by default). The
+harness no longer invokes Retry automatically. Suite v2 requires the resumed
+offset with no paused/manual-decision state; exhausting retries fails the check.
+
+All 18 unit cases passed. Firefox 155.0.1 and Chromium 153.0.8010.36 verified
+64 MiB native ZIPs after the injected HTTP/body failures and 45-second silence,
+with independent CRC and page SHA-256/CRC checks, and no Retry action. Chromium
+passed both transports, including the separate offline/online, page cancel/leave
+guard and native cancellation cases. These are small recovery checks, not a new
+larger-than-RAM or full twelve-minute suite result.
