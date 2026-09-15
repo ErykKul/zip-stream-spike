@@ -83,8 +83,10 @@ wait. The copied production mechanism is identical in both builds.
 A compact [validation record](../automation_results/2026-09-15.json) retains
 browser versions, options, integrity results and build IDs.
 
-No new 35 GiB manual pass, total-memory measurement, Safari/macOS pass or
-physical-offline/sleep recovery claim follows from this automation. Earlier
+No 35 GiB manual pass, total-memory measurement, Safari/macOS pass or
+physical-offline/sleep recovery claim follows from this automation. Eryk later
+provided a separate [Safari 17.6 macOS VM 35 GiB pass](../browser_results/README.md);
+that manual report uses the final build. Earlier
 manual browser reports keep their original source/build identifiers.
 
 ## Earlier checks — 2026-09-14

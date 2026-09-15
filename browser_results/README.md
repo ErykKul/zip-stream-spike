@@ -1,11 +1,38 @@
 # Browser results
 
-Manual Linux results from 2026-09-14 on a laptop with 32 GB RAM. Each completed
-run saved and verified a 35 GiB payload in seven ZIP64 entries using SHA-256 and
-ZIP CRC-32. All five suite checks passed: cancellation, retry/resume, source
-silence, stream lifetime and saved-ZIP verification.
+Manual saved-ZIP results, grouped by the frontend and test build actually run.
+The environment descriptions below include tester observations; raw exports are
+preserved unchanged.
 
-## Current suite v2
+## Suite v3: Safari in a macOS VM, 2026-09-15
+
+[Safari 17.6: verified 35 GiB ZIP](2026-09-15-safari-17.6-macos-vm-35gib.json),
+reported by Eryk as a Safari run in a macOS VM. Frontend `59979b628`, engine
+`909b1d8ad8fd66bd`, mechanism `c5d21c7bc3f5ef69`, matching revision 7.
+
+- All six suite checks passed: protocol, cancellation, automatic retry/resume,
+  45-second source silence, stream lifetime and saved-ZIP verification.
+- Seven ZIP64 entries passed SHA-256 and CRC-32. ZIP bytes **37,580,965,226**
+  agree with the worker's completion count; payload is exactly **35 GiB**.
+- The native ZIP used automatically selected **MessageChannel**, cloned chunks,
+  no declared Content-Length and no extended worker-event lifetime. No special
+  native-download setting was needed. All five available internal protocol
+  comparisons passed; transferable streams were not available in this run.
+- Download checks took **12m00s**, including a final **2m42s** lifetime hold;
+  saved-file verification took **5m11s**. Recorded hidden intervals total
+  **8m06s**, longest **5m05s**. Timer gaps are not evidence of system sleep.
+- The **32 GB RAM button** was selected. Actual assigned VM RAM and the macOS
+  version are awaiting clarification. `memoryObservation` is `not-measured`;
+  this export supplies no RAM measurement. Its user-agent macOS string is not
+  an independently recorded operating-system version.
+
+This is a saved-ZIP pass in Safari itself, running in a VM. Julian's separately
+requested Mac result is still pending; no result is attributed to him.
+
+## Suite v2: Linux, 2026-09-14
+
+These runs used a laptop with 32 GB RAM. Each saved and verified 35 GiB in seven
+ZIP64 entries with SHA-256/CRC-32, and passed all five suite-v2 checks.
 
 Frontend source `61c6b12451f369efe22cef58a99a24d6b2ded85f`, engine
 `87b57ddca34b6944`, mechanism `37059c310dcca21e`. These runs test production
@@ -24,8 +51,6 @@ browsers concurrently**, with up to five browsers open. This includes ordinary
 browser/application memory. The Firefox v2 export retains its `not-measured`
 selector; the separate system observation does not change the raw report.
 Overlapping runs are not isolated performance benchmarks.
-
-**Safari on macOS remains outstanding.** Ask Julian first.
 
 ## Earlier and intermediate exports
 
