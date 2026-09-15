@@ -21,10 +21,17 @@ reported by Eryk as a Safari run in a macOS VM. Frontend `59979b628`, engine
 - Download checks took **12m00s**, including a final **2m42s** lifetime hold;
   saved-file verification took **5m11s**. Recorded hidden intervals total
   **8m06s**, longest **5m05s**. Timer gaps are not evidence of system sleep.
-- The **32 GB RAM button** was selected. Actual assigned VM RAM and the macOS
-  version are awaiting clarification. `memoryObservation` is `not-measured`;
-  this export supplies no RAM measurement. Its user-agent macOS string is not
-  an independently recorded operating-system version.
+- Environment: **macOS Sonoma 14.8.9 x86_64, Safari 17.6**, QEMU/KVM via
+  Docker-OSX on Arch Linux. The VM had **16 GB RAM** (Activity Monitor: 15.63 GB),
+  eight vCPUs and no GPU acceleration. The **32 GB button** selected the payload;
+  the verified 35 GiB archive exceeded twice the VM's assigned RAM.
+- One Activity Monitor snapshot at **12:53 UTC**, during the final lifetime hold:
+  **4.97 GB Memory Used**, **10.71 GB Cached Files**, **zero swap/compression**,
+  green pressure; site WebContent **35.9 MB**. This is a late snapshot, not
+  continuous monitoring or a generation-phase/peak-memory measurement.
+  [Full environment and memory notes](2026-09-15-safari-17.6-macos-vm-notes.md)
+  preserve all supplied readings. The original export's `not-measured` selector
+  and `ramGiB: 32` are unchanged; the clarification is recorded separately.
 
 This is a saved-ZIP pass in Safari itself, running in a VM. Julian's separately
 requested Mac result is still pending; no result is attributed to him.
