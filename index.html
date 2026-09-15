@@ -34,10 +34,19 @@
     </div>
     <p class="small">Choose your actual RAM size, or the next size up. Allow a little more free disk space than the size shown. Sizes are ZIP payload in GiB (1,024³ bytes).</p>
     <p class="run-expectation">One button starts the checks. Keep this tab open and your computer awake, then choose the finished ZIP once for verification.</p>
-    <p class="small">Allow at least 12 minutes for the download checks, plus time to verify the saved ZIP. Faster downloads wait only until the 12-minute mark; unfinished source generation stops after 45 minutes. The stopping check runs automatically before your ZIP download starts.</p>
+    <p class="small">Allow at least 12 minutes for the download checks, plus time to verify the saved ZIP. Faster downloads wait only until the 12-minute mark; unfinished source generation stops after 45 minutes. Small stream-delivery and stopping checks run automatically before your ZIP download starts. A 35 GiB run previously took about 15 minutes to download and 13 to verify.</p>
     <details class="setup-check">
       <summary>Advanced: quick setup check</summary>
       <div class="quick-check"><button id="smoke-test" class="secondary">Try a small ZIP</button><span>64 MiB · setup only, without interruption or lifetime checks</span></div>
+    </details>
+    <details class="setup-check">
+      <summary>Advanced: compare download behavior</summary>
+      <p class="small">Leave these at their defaults for the production mechanism. Change one option at a time for a comparison; the result records your choices.</p>
+      <label class="observation" for="test-transport">Stream transport</label>
+      <select id="test-transport"><option value="auto">Automatic (production default)</option><option value="clone">MessageChannel, cloned chunks</option><option value="transfer">MessageChannel, transferred chunks</option></select>
+      <label class="observation"><input type="checkbox" id="exact-length"> Declare the exact synthetic ZIP size</label>
+      <label class="observation"><input type="checkbox" id="hold-worker"> Keep the worker event open until completion (experiment)</label>
+      <p class="small">The worker-lifetime experiment can encounter browser event time limits. The normal test leaves it off.</p>
     </details>
     <p id="boot-status" class="small" role="status">Loading the download test…</p>
   </section>
@@ -56,9 +65,9 @@
         <summary>Record a manual interruption</summary>
         <p class="small">Use these for the stopping check, or for a separate connection check. The page cannot observe the browser's download list or native warning dialog.</p>
         <label class="observation" for="diagnostic-action">Action you tried</label>
-        <select id="diagnostic-action"><option value="not-recorded">No manual action recorded</option><option value="page-stop">Clicked Stop test on this page</option><option value="browser-cancel">Cancelled in the browser's download list</option><option value="reload-stay">Tried reload, then chose to stay</option><option value="offline-online">Disconnected and reconnected the network</option></select>
+        <select id="diagnostic-action"><option value="not-recorded">No manual action recorded</option><option value="page-stop">Clicked Stop test on this page</option><option value="browser-cancel">Cancelled in the browser's download list</option><option value="reload-stay">Tried reload, then chose to stay</option><option value="offline-online">Disconnected and reconnected the network</option><option value="sleep-wake">Put the computer to sleep and woke it</option></select>
         <label class="observation" for="download-observation">Browser's download list</label>
-        <select id="download-observation"><option value="not-observed">Not checked</option><option value="failed-or-cancelled">Reported failed or cancelled</option><option value="completed">Reported completed</option><option value="still-running">Still running</option></select>
+        <select id="download-observation"><option value="not-observed">Not checked</option><option value="failed-or-cancelled">Reported failed or cancelled</option><option value="completed">Reported completed</option><option value="still-running">Still running</option><option value="completed-no-resume">Reported completed with no Resume, but the page failed</option><option value="resume-failed">Resume was offered but failed</option><option value="resume-restarted">Resume restarted from the beginning</option></select>
         <label class="observation" for="guard-observation">When you tried reloading</label>
         <select id="guard-observation"><option value="not-checked">Not checked</option><option value="warning-stayed">Warning appeared; I chose to stay</option><option value="no-warning">No warning appeared</option></select>
       </details>
@@ -81,6 +90,9 @@
       <label class="observation" for="memory-observation">If you watched memory in your system or browser task manager:</label>
       <select id="memory-observation"><option value="not-measured">I did not measure memory</option><option value="roughly-flat">Memory stayed roughly flat</option><option value="growing">Memory grew with the download</option><option value="unsure">I could not tell</option></select>
       <p class="small">Completing a ZIP larger than RAM is useful evidence for this browser and machine. It does not by itself prove flat memory use: virtual memory and browser disk caches can also help.</p>
+      <label class="observation" for="system-version">Browser and operating system versions (optional)</label>
+      <input id="system-version" type="text" maxlength="160" placeholder="For example: Safari version; macOS version">
+      <p class="small">On a Mac, copy the versions from About Safari and About This Mac. Automatic browser identification can hide the actual macOS version.</p>
       <pre id="result-json" tabindex="0"></pre>
     </details>
   </section>
@@ -89,14 +101,15 @@
     <p>This page runs the ZIP download engine from the Dataverse frontend. It creates test data locally, feeds it through the same range-reading, checksum, ZIP creation, and browser-saving code, then checks the ZIP you saved.</p>
     <p>No dataset or login is needed, and nothing is uploaded. A pass applies to the browser and machine you tested. It does not test a Dataverse installation’s network, permissions, or storage configuration.</p>
     <p>Keep this tab open and your computer awake during the check. If asked where to save the download, choose a folder on disk. The page cannot read your Downloads folder automatically, so it asks you to choose the finished file before reporting a verified result.</p>
-    <p>A small ZIP checks the setup. Each RAM button first checks that the page can stop a waiting source, then exercises recovery from simulated response failures and an archive larger than your stated memory. The source stays open for at least 12 minutes, including a deliberate quiet interval. The saved ZIP verifies resumed bytes, ZIP64 structure, and every entry’s checksum.</p>
+    <p>A small ZIP checks the setup. Each RAM button first compares bounded chunk transports, completion acknowledgements and exact-length errors internally, then checks that the page can stop a waiting source, then exercises recovery from simulated response failures and an archive larger than your stated memory. The source stays open for at least 12 minutes, including a deliberate quiet interval. The saved ZIP verifies resumed bytes, ZIP64 structure, and every entry’s checksum.</p>
     <p>You can use another tab while the test runs; visibility changes are recorded. Native download-manager cancellation, reload warning dialogs, sleep/wake, and a real network disconnection need separate tests. This page does not pretend to perform those browser or operating-system actions automatically.</p>
+    <p>With the advanced options left unchanged, the main ZIP uses production defaults, including an unspecified final length. Internal checks also exercise declared lengths and an opt-in worker-lifetime setting; those checks do not prove a native Safari download survives suspension.</p>
     <p id="source-version" class="small"></p>
     <p><a href="https://github.com/ErykKul/zip-stream-spike#readme">Source and test notes</a> · <a href="https://github.com/IQSS/dataverse-frontend/pull/898">Dataverse frontend PR</a></p>
   </details>
   <footer>Test in Edge, Opera, Chrome, Chromium, Firefox, or Safari. Report the result you observe; browser support is what we are measuring.</footer>
 </main>
 <noscript><p>This test needs JavaScript enabled.</p></noscript>
-<script type="module" src="app.js?v=20260914-6"></script>
+<script type="module" src="app.js?v=20260915-7"></script>
 </body>
 </html>

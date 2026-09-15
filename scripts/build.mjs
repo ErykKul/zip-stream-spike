@@ -57,7 +57,7 @@ const metadata = { ...source, libraries, clientZipVersion: libraries['client-zip
   rangeBytes: 10 * MIB, sourceChunkBytes: pattern.length,
   maximumEntryBytes: 5 * GIB,
   workerPath: 'reusable-components/zip-download-sw.js',
-  completionMeaning: 'Source stream consumed; saved file must be verified separately.' }
+  completionMeaning: 'Worker confirmed response-body completion and matching ZIP-byte counts; saved file must be verified separately.' }
 const inputs = ['src/engine.ts', 'src/scenarios.mjs', 'src/verify.mjs', 'src/verify-worker.mjs', 'src/payload.mjs', 'reusable-components/check.html', 'scripts/build.mjs', 'package.json']
 const hash = createHash('sha256').update(JSON.stringify(metadata)).update(JSON.stringify(checksums))
 for (const input of inputs) hash.update(await readFile(input))

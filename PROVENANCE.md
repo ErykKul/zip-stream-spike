@@ -2,7 +2,7 @@
 
 `engine.js` bundles the actual `useStreamingZipDownload` React hook and its
 dependency closure from IQSS/dataverse-frontend commit
-`fc73d4eced3f46583012f787973d0f4c437a8c54` (PR #898). The hook runs in a hidden React
+`59979b6280e0249815b0763e2289be23f84da76e` (PR #898). The hook runs in a hidden React
 root, just as a component would use it. Its source, `zipStreamSink`, size limits,
 formatting dependency and unload guard are copied byte for byte under
 `vendor/frontend/`. The service worker is an unchanged copy of the frontend
@@ -21,15 +21,17 @@ installed in the frontend checkout.
 
 ## Production path exercised
 
-1. The normal frontend `resolveZipSink` registers and probes the worker, selects
-   streaming when available, and otherwise selects its existing Blob fallback.
+1. The actual frontend `createServiceWorkerSink` registers and probes the worker.
+   The spike requires streaming and fails clearly if it is unavailable. Production
+   retains its separate, size-capped Blob fallback; this page does not test it.
 2. The actual hook requests each synthetic entry sequentially, using its default
    10 MiB range size and incremental SHA-256 verification.
 3. The actual `client-zip` 2.5.0 encoder writes ZIP headers, stored payloads, data
    descriptors, central directory and ZIP64 records.
 4. The actual sink chooses transferable streams or the MessageChannel fallback,
    acknowledges registration, navigates a hidden iframe, sends its normal
-   keepalive messages, and follows browser backpressure.
+   keepalive messages, and follows browser backpressure. Protocol 2 requires the
+   worker to confirm completion and matching ZIP-byte counts before `save()` resolves.
 5. The browser downloads the ZIP. The test page is outside the service worker's
    `reusable-components/` scope, matching the embedded JSF placement.
 
@@ -39,9 +41,8 @@ browser's fetch implementation. It returns real `Response`/`ReadableStream`
 objects with status 206 and `Content-Range` for the hook's range requests. It
 allocates one 256 KiB chunk on demand. There is no prebuilt Blob, source file,
 in-memory ZIP, OPFS spool, alternative ZIP encoder or replacement download sink
-on the streaming path. If the production resolver chooses its Blob fallback,
-the result explicitly says `buffered-blob`; the production 2 GiB limit still
-applies.
+on the streaming path. The production Blob fallback is deliberately excluded
+from this experiment so a browser cannot silently pass using a different sink.
 
 Every large run includes 5 GiB entries, exercising the ZIP64 representation for
 an individual entry as well as offsets beyond 4 GiB. Remaining bytes use
@@ -56,7 +57,8 @@ normal RAM buttons do not override the production transport decision.
 
 ## Automatic sequence and diagnostic scenarios
 
-The RAM buttons call `startSuite`, which first runs a 64 MiB cancellation check,
+The RAM buttons call `startSuite`, which first runs small protocol comparisons
+and a 64 MiB cancellation check,
 then `start({scenario: 'complete', ...})` with the selected payload. This adds
 source errors, frontend automatic retry, 45 seconds of silence and a final-chunk hold to
 at least 12 minutes, with a 45-minute source ceiling. `checkCancellation` invokes
@@ -91,13 +93,29 @@ the diagnostic adapter and build inputs, so it changes when the harness changes.
 Earlier results without `frontendMechanismId` can be matched by their frontend
 commit and dependency versions against the retained source-hash provenance.
 The earlier large ZIPs remain valid evidence for their recorded source version.
-The current snapshot adds two frontend cancellation fixes: rejected source-reader
-cancellation is handled, and client-zip's unhandled call to the input generator's
-`throw()` is caught specifically on cancellation. Ordinary source/read failures
-still propagate through the frontend recovery flow. These fixes are in local
-frontend commits `5d5ce8d5b` and `fc73d4ece`; the dependency versions and download
-worker are unchanged. This test repository contains the exact source even before
-those frontend commits are pushed for PR re-review.
+The current snapshot includes production automatic response-body retries and the
+protocol-2 completion/cleanup changes. The previous five-browser 35 GiB reports
+used `61c6b1245`; they are not full-size passes for this newer snapshot.
+
+Before the native download, `checkProtocol` consumes small worker responses in a
+controlled helper frame. It compares cloned and transferred MessageChannel
+chunks, transferable streams when supported, exact and deliberately incorrect
+lengths, and the optional fetch-event lifetime setting. Its 1 MiB + 17 byte input
+exercises splitting a producer chunk larger than 256 KiB. These are internal
+response checks, not saved-file or long-duration Safari evidence.
+
+The ordinary RAM button uses production defaults: automatic transport, cloned
+fallback chunks, no declared final length, and no extended fetch-event lifetime.
+Advanced controls allow a native ZIP comparison with transferred fallback chunks,
+exact synthetic ZIP length, or `holdWorkerUntilComplete`. These settings are
+recorded in `testOptions` and `sinkOptions`. Production cannot infer exact final
+length from the initial selection because skipped files and warning manifests
+can change the entry set. No inflated Content-Length is used.
+
+Results include worker messages and ZIP-byte totals, serializable failure reasons,
+connectivity and visibility events, and long timer gaps. A timer gap can reflect
+sleep, throttling or a busy event loop; it is not proof of sleep. Collections are
+bounded, and events do not establish network reachability or disk durability.
 
 Fault injection checks the frontend's response to those exact source failures.
 It is not an actual Internet outage. Browser offline/online automation probes
@@ -109,8 +127,8 @@ an integrity pass. Timeouts and unavailable streaming sinks are inconclusive.
 
 ## What a successful result establishes
 
-The hook's `done` state means its source ZIP stream has been consumed by the
-browser transport. It is not a disk flush or browser download-manager
+The hook's streaming `done` state means the worker acknowledged response-body
+completion and its ZIP-byte count matched the producer. It is not a disk flush or browser download-manager
 completion signal. The page cannot observe those signals directly.
 
 After the browser has finished, the tester selects the saved ZIP. A dedicated

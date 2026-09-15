@@ -13,6 +13,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const root = fileURLToPath(new URL('../', import.meta.url))
 const require = createRequire(import.meta.url)
 const bytes = process.argv.includes('--zip64') ? 5 * 1024 ** 3 + 64 * 1024 ** 2 : 64 * 1024 ** 2
+const firefoxMode = process.argv.includes('--firefox')
+const sinkOptions = {
+  exactLength: process.argv.includes('--exact-length'),
+  holdWorkerUntilComplete: process.argv.includes('--hold-worker'),
+  transferChunks: process.argv.includes('--transfer-chunks')
+}
 const timeout = process.argv.includes('--zip64') ? 30 * 60_000 : 3 * 60_000
 
 async function loadPlaywright() {
@@ -127,14 +133,18 @@ async function runScenario(browser, base, artifactDirectory, forceMessageChannel
   try {
     await page.goto(base, { waitUntil: 'networkidle' })
     await page.waitForFunction(() => typeof window.spikeTest?.startRun === 'function')
+    const protocol = await page.evaluate(async () => (await import('./engine.js')).checkProtocol())
+    assert.equal(protocol.passed, true, JSON.stringify(protocol))
+    console.log(JSON.stringify({ protocol: protocol.cases.map(({ name, passed }) => ({ name, passed })) }))
     const downloadPromise = page.waitForEvent('download', { timeout })
-    if (!forceMessageChannel && bytes === 64 * 1024 ** 2) {
-      await page.locator('details.setup-check').evaluate((element) => { element.open = true })
+    void downloadPromise.catch(() => undefined)
+    if (!forceMessageChannel && bytes === 64 * 1024 ** 2 && !Object.values(sinkOptions).some(Boolean)) {
+      await page.locator('details.setup-check').first().evaluate((element) => { element.open = true })
       await page.locator('#smoke-test').click()
     } else {
-      await page.evaluate(({ payloadBytes, forced }) => {
-        void window.spikeTest.startRun({ bytes: payloadBytes, ramGiB: 0, transferStreams: forced ? false : undefined })
-      }, { payloadBytes: bytes, forced: forceMessageChannel })
+      await page.evaluate(({ payloadBytes, forced, options }) => {
+        void window.spikeTest.startRun({ ...options, bytes: payloadBytes, ramGiB: 0, transferStreams: forced ? false : undefined })
+      }, { payloadBytes: bytes, forced: forceMessageChannel, options: sinkOptions })
     }
     const download = await downloadPromise
     const archive = join(artifactDirectory, download.suggestedFilename())
@@ -214,7 +224,6 @@ async function runScenario(browser, base, artifactDirectory, forceMessageChannel
       // Simulate a saved result from a previous run, then exercise real reload.
       await page.evaluate((saved) => sessionStorage.setItem('dataverse-zip-check-v2', JSON.stringify(saved)), next)
       await page.reload()
-      await page.waitForURL(/fresh=/)
       await page.waitForFunction(() => window.spikeTest && !document.getElementById('smoke-test').disabled)
       assert.equal(await page.evaluate(() => window.spikeTest.getResult()), null)
       assert.equal(await page.locator('#result-panel').isVisible(), false)
@@ -238,9 +247,10 @@ let server
 let browser
 let artifacts
 try {
-  const { chromium } = await loadPlaywright()
+  const playwright = await loadPlaywright()
+  const browserType = firefoxMode ? playwright.firefox : playwright.chromium
   let executablePath = process.env.BROWSER_EXECUTABLE_PATH
-  if (!executablePath) {
+  if (!executablePath && !firefoxMode) {
     try {
       await access('/usr/bin/chromium')
       executablePath = '/usr/bin/chromium'
@@ -252,8 +262,8 @@ try {
   const downloads = resolve(root, process.env.SPIKE_ARTIFACT_ROOT || '.smoke-downloads')
   await mkdir(downloads, { recursive: true })
   artifacts = await mkdtemp(join(downloads, 'run-'))
-  browser = await chromium.launch({ executablePath, headless: process.env.HEADLESS !== '0', args: ['--no-sandbox'], downloadsPath: artifacts })
-  console.log(JSON.stringify({ browser: await browser.version(), base, payloadBytes: bytes, artifacts }))
+  browser = await browserType.launch({ executablePath, headless: process.env.HEADLESS !== '0', args: firefoxMode ? [] : ['--no-sandbox'], downloadsPath: artifacts })
+  console.log(JSON.stringify({ browser: await browser.version(), browserType: browserType.name(), sinkOptions, base, payloadBytes: bytes, artifacts }))
   if (process.argv.includes('--screenshots-only')) {
     for (const [label, viewport] of [['desktop', { width: 1280, height: 800 }], ['mobile', { width: 390, height: 844 }]]) {
       const page = await browser.newPage({ viewport })

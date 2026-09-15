@@ -4,7 +4,7 @@ Run `node scripts/smoke.mjs` from the repository root after rebuilding the
 frontend snapshot. It starts a local static server at the same subdirectory
 shape as GitHub Pages and opens Chromium. The test:
 
-1. Clicks the page's quick check and saves the browser's completed download.
+1. Checks the six small worker protocol variants, then clicks the page's quick check and saves the browser's completed download.
 2. Reads every ZIP entry with Python's independent ZIP reader, including its
    CRC and central-directory checks.
 3. Selects that saved file in the page and requires successful verification.
@@ -24,6 +24,10 @@ Requirements are Node.js, Python 3, Playwright, and a Chromium browser. The
 script uses a locally installed `playwright` package or the sibling
 `dataverse-frontend/node_modules/playwright` package. Optional settings:
 
+- `--firefox`: use Playwright’s managed Firefox (its version is printed; this is
+  not automatically the installed system Firefox).
+- `--exact-length`, `--hold-worker`, `--transfer-chunks`: enable the corresponding
+  native-download comparison settings. Prefer one change at a time for diagnosis.
 - `PLAYWRIGHT_MODULE`: path to Playwright's `index.mjs`.
 - `BROWSER_EXECUTABLE_PATH`: browser executable; defaults to system Chromium
   when present, otherwise Playwright's managed Chromium.
@@ -39,7 +43,51 @@ copy at a time. Headless/automated Chromium is not a replacement for testing the
 actual Chrome, Chromium, Edge, Opera, Firefox and Safari versions with their
 normal download managers and browser settings.
 
-## Recorded checks — 2026-09-14
+## Protocol-2 validation, 2026-09-15
+
+Frontend `59979b6280e0249815b0763e2289be23f84da76e`, mechanism
+`c5d21c7bc3f5ef69`. Initial runs used engine `c470cb8ccfe643d2`; the final
+`909b1d8ad8fd66bd` build additionally bounds the internal protocol consumer's
+wait. The copied production mechanism is identical in both builds.
+
+- Frontend: 124 focused Cypress tests (78 hook, 38 sink, 8 actual-worker protocol),
+  TypeScript, targeted ESLint/Prettier and the standalone production build passed.
+- All 18 spike unit cases passed.
+- Chromium 153.0.8010.36 saved and verified 64 MiB using automatic transport and
+  forced MessageChannel. The six protocol comparisons passed; altered/truncated
+  files were rejected. Repeat, Start new test, reload and leaving-page cleanup
+  passed. Both transports also saved/verified with exact length, extended worker
+  event lifetime and transferred fallback chunks enabled together. These are
+  correctness checks, not isolated performance comparisons.
+- Firefox 155.0.1, through standard GeckoDriver in isolated headless profiles,
+  saved/verified 64 MiB after HTTP/body errors, exact automatic retry and 45-second
+  silence. Both transferable streams and MessageChannel passed; the latter also
+  enabled the three optional settings. Repeat reached worker completion on both;
+  those repeat files were not separately verified. No physical disconnect was
+  performed. Playwright's older managed Firefox 141 separately passed both
+  transports, protocol checks, damaged-file rejection and session-reset controls.
+- Chromium's 5 GiB + 64 MiB ZIP64 check passed independent CRC/ZIP reading and
+  page SHA-256/CRC verification: 5,435,818,422 archive bytes, two entries, including
+  one larger than 4 GiB.
+- The final engine build passed the automatic Chromium small-download check,
+  all six protocol comparisons, independent integrity, damaged-file rejection
+  and session-reset controls. Desktop/mobile layouts were checked visually.
+
+- Chromium's full RAM-button sequence passed in an actual hidden tab: source
+  lifetime 721 seconds, all six suite checks, independent CRC and page SHA-256/CRC
+  verified. All 714 visibility samples before completion were hidden. This used
+  the initial adapter build, with the same production mechanism as the final
+  build. All assertions and the final report completed; the surrounding Xvfb
+  shell exited 143 during cleanup.
+
+A compact [validation record](../automation_results/2026-09-15.json) retains
+browser versions, options, integrity results and build IDs.
+
+No new 35 GiB manual pass, total-memory measurement, Safari/macOS pass or
+physical-offline/sleep recovery claim follows from this automation. Earlier
+manual browser reports keep their original source/build identifiers.
+
+## Earlier checks — 2026-09-14
 
 Engine build `f5093478233d8b19`, frontend source
 `5855877c3c6c2a9fcbf9c8be7ad0a5bc97599047`:
@@ -73,7 +121,7 @@ integration remain separate observations to collect.
 
 ## Automatic combined checks — 2026-09-14
 
-Current engine `b247577d88111321`, exact frontend source
+Earlier engine `b247577d88111321`, exact frontend source
 `fc73d4eced3f46583012f787973d0f4c437a8c54`, mechanism fingerprint
 `5821e415b808e43c`:
 

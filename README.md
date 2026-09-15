@@ -14,10 +14,11 @@ server, account, large source file, or upload is needed.
 1. Choose the button matching your installed RAM, or the next size up. On a
    **32 GB RAM** machine, choose **32 GB**: it creates a ZIP containing **35 GiB**
    of data. Make sure the disk has enough free space.
-2. The button runs the stopping check, then downloads your large ZIP with
+2. The button runs brief stream-delivery and stopping checks, then downloads your ZIP with
    automatic recovery, pauses, and at least 12 minutes of stream lifetime.
    **No Retry click or separate diagnostic is needed.** Only the final ZIP is
-   saved as a browser download. Keep its suggested unique filename.
+   saved as a browser download. Keep its suggested unique filename. A 35 GiB run
+   previously took roughly 15 minutes to download and 13 minutes to verify.
 3. Leave the page open and the computer awake, with developer tools closed.
    You can use another tab or application while it runs. Wait for the final
    browser download to finish.
@@ -56,7 +57,7 @@ downloaded files stay on disk.
 
 ## What counts as a result?
 
-**“Ready to verify” means the browser consumed the stream.** A web page cannot
+**“Ready to verify” means the worker confirmed stream completion and matching byte counts.** A web page cannot
 automatically inspect the browser’s Downloads folder or observe its final disk
 flush. Generation reaching 100%, an apparent file size, or a service-worker
 capability check is not a verified download.
@@ -85,9 +86,9 @@ The harness injects source failures and checks that the frontend retries them
 automatically, without invoking Retry on its behalf. It invokes the actual
 Cancel action for the stopping check. The
 worker is under `reusable-components/`, outside the page’s
-scope, matching the embedded JSF layout. If the frontend chooses its Blob
-fallback, the complete check stops as inconclusive because it requires streaming.
-The plain Advanced check retains the production 2 GiB buffered cap. There is no
+scope, matching the embedded JSF layout. All checks require the actual streaming
+sink; they fail clearly when it is unavailable. Production's size-capped Blob
+fallback is outside this experiment. There is no
 OPFS alternative, custom ZIP writer, or hidden large-memory fallback added here.
 
 This test does **not** establish behavior against real Dataverse servers:
@@ -122,7 +123,9 @@ Smoke-test success is not a substitute for each tester’s larger-than-RAM run.
 
 Each RAM button performs the same sequence:
 
-1. Start an internal stream through the actual ZIP hook, encoder, sink and
+1. Compare small internal worker responses: cloned/transferred chunks, exact and
+   incorrect lengths, completion acknowledgement, and the optional worker event
+   lifetime setting. Then start an internal stream through the actual ZIP hook, encoder, sink and
    service worker. Cancel while its source read is waiting and check both the
    frontend abort signal and consumer failure. This probe creates no saved file.
 2. Start the selected large ZIP. Return one simulated HTTP 503 and interrupt a
@@ -173,3 +176,22 @@ results are retained in [HISTORY.md](HISTORY.md), with their limits made explici
 Those observations are not results for this ZIP harness. The old scripts remain
 available in Git history at `7351fc3`; their unused controls and copies have
 been removed from the active page.
+
+## Optional comparisons
+
+Leave **Advanced: compare download behavior** at its defaults for Julian's normal
+RAM-button run. All short protocol comparisons already run automatically. If a
+browser fails, change one setting at a time to compare the native download:
+
+- Force MessageChannel with cloned or transferred chunks.
+- Declare the exact synthetic ZIP length. Production omits this header because
+  skipped entries and warning manifests can change the final length.
+- Hold the worker fetch event open until completion. This is experimental;
+  browser event deadlines can make it worse for long downloads.
+
+The result records the settings, worker ZIP-byte counts, cancellation reasons,
+connectivity/visibility events and timer gaps. The manual interruption controls
+can record network disconnection, sleep/wake and what the download list showed.
+These observations do not implement resume after a lost destination stream.
+Firefox's physical network-disconnect limitation remains unresolved, and actual
+Safari/macOS and sleep/wake still need testing.

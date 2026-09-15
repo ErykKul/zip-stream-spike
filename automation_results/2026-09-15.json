@@ -1,0 +1,285 @@
+{
+  "date": "2026-09-15",
+  "frontendCommit": "59979b6280e0249815b0763e2289be23f84da76e",
+  "frontendMechanismId": "c5d21c7bc3f5ef69",
+  "initialEngineBuild": "c470cb8ccfe643d2",
+  "finalEngineBuild": "909b1d8ad8fd66bd",
+  "scope": "Bounded automation, not manual >RAM evidence, physical disconnect recovery, sleep/wake or Safari. Initial/final adapters differ in protocol-probe timeout bounds; copied frontend mechanism is identical.",
+  "frontendChecks": {
+    "focusedCypressPassed": 124,
+    "spikeUnitCasesPassed": 18,
+    "typecheck": true,
+    "targetedLintAndFormat": true,
+    "standaloneBuild": true
+  },
+  "firefox155": [
+    {
+      "browser": "155.0.1",
+      "options": {
+        "transferStreams": true
+      },
+      "engineBuild": "c470cb8ccfe643d2",
+      "verification": {
+        "checks": "SHA-256 and ZIP CRC-32",
+        "elapsedMs": 1548,
+        "entries": 1,
+        "payloadBytes": 67108864,
+        "verified": true,
+        "zip64": false,
+        "zipBytes": 67109030
+      },
+      "independent": {
+        "crcChecked": true,
+        "entries": 1,
+        "payloadBytes": 67108864
+      },
+      "workerBytes": 67109030,
+      "scenarioOutcome": "source-complete",
+      "protocolChecks": [
+        {
+          "name": "cloned-chunks",
+          "passed": true
+        },
+        {
+          "name": "transferred-chunks",
+          "passed": true
+        },
+        {
+          "name": "declared-length",
+          "passed": true
+        },
+        {
+          "name": "incorrect-length",
+          "passed": true
+        },
+        {
+          "name": "worker-lifetime",
+          "passed": true
+        },
+        {
+          "name": "transferred-stream",
+          "passed": true
+        }
+      ],
+      "repeat": "Worker completion confirmed; repeat ZIP not independently verified."
+    },
+    {
+      "browser": "155.0.1",
+      "options": {
+        "transferStreams": false,
+        "exactLength": true,
+        "transferChunks": true,
+        "holdWorkerUntilComplete": true
+      },
+      "engineBuild": "c470cb8ccfe643d2",
+      "verification": {
+        "checks": "SHA-256 and ZIP CRC-32",
+        "elapsedMs": 1583,
+        "entries": 1,
+        "payloadBytes": 67108864,
+        "verified": true,
+        "zip64": false,
+        "zipBytes": 67109030
+      },
+      "independent": {
+        "crcChecked": true,
+        "entries": 1,
+        "payloadBytes": 67108864
+      },
+      "workerBytes": 67109030,
+      "scenarioOutcome": "source-complete",
+      "protocolChecks": [
+        {
+          "name": "cloned-chunks",
+          "passed": true
+        },
+        {
+          "name": "transferred-chunks",
+          "passed": true
+        },
+        {
+          "name": "declared-length",
+          "passed": true
+        },
+        {
+          "name": "incorrect-length",
+          "passed": true
+        },
+        {
+          "name": "worker-lifetime",
+          "passed": true
+        },
+        {
+          "name": "transferred-stream",
+          "passed": true
+        }
+      ],
+      "repeat": "Worker completion confirmed; repeat ZIP not independently verified."
+    }
+  ],
+  "chromiumHidden": {
+    "browser": "153.0.8010.36",
+    "passed": true,
+    "elapsedMs": 721010.1000000015,
+    "workerBytes": 67109030,
+    "verification": {
+      "checks": "SHA-256 and ZIP CRC-32",
+      "elapsedMs": 905.8999999985099,
+      "entries": 1,
+      "payloadBytes": 67108864,
+      "verified": true,
+      "zip64": false,
+      "zipBytes": 67109030
+    },
+    "checks": {
+      "cancellation": true,
+      "protocol": true,
+      "retryAndResume": true,
+      "savedZip": true,
+      "sourceSilence": true,
+      "streamLifetime": true
+    },
+    "visibility": {
+      "before": "visible",
+      "background": "hidden",
+      "samples": {
+        "hidden": 714,
+        "visible": 0
+      }
+    },
+    "engineBuild": "c470cb8ccfe643d2",
+    "command": "HEADLESS=0 xvfb-run -a node scripts/interruptions.mjs --suite --automatic-only",
+    "wrapperNote": "All assertions completed and the final report was written; the surrounding Xvfb shell exited 143 during cleanup."
+  },
+  "smokeChecks": [
+    {
+      "command": "node scripts/smoke.mjs",
+      "engineBuild": "c470cb8ccfe643d2",
+      "browser": "153.0.8010.36",
+      "options": {
+        "exactLength": false,
+        "holdWorkerUntilComplete": false,
+        "transferChunks": false
+      },
+      "savedZipResults": [
+        {
+          "scenario": "automatic transport",
+          "archiveBytes": 67109030,
+          "entries": 1,
+          "uncompressedBytes": 67108864,
+          "crcChecked": true,
+          "savedFileVerifiedByPage": true
+        },
+        {
+          "scenario": "MessageChannel",
+          "archiveBytes": 67109030,
+          "entries": 1,
+          "uncompressedBytes": 67108864,
+          "crcChecked": true,
+          "savedFileVerifiedByPage": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "command": "node scripts/smoke.mjs --exact-length --hold-worker --transfer-chunks",
+      "engineBuild": "c470cb8ccfe643d2",
+      "browser": "153.0.8010.36",
+      "options": {
+        "exactLength": true,
+        "holdWorkerUntilComplete": true,
+        "transferChunks": true
+      },
+      "savedZipResults": [
+        {
+          "scenario": "automatic transport",
+          "archiveBytes": 67109030,
+          "entries": 1,
+          "uncompressedBytes": 67108864,
+          "crcChecked": true,
+          "savedFileVerifiedByPage": true
+        },
+        {
+          "scenario": "MessageChannel",
+          "archiveBytes": 67109030,
+          "entries": 1,
+          "uncompressedBytes": 67108864,
+          "crcChecked": true,
+          "savedFileVerifiedByPage": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "command": "node scripts/smoke.mjs --firefox",
+      "engineBuild": "c470cb8ccfe643d2",
+      "browser": "141.0",
+      "options": {
+        "exactLength": false,
+        "holdWorkerUntilComplete": false,
+        "transferChunks": false
+      },
+      "savedZipResults": [
+        {
+          "scenario": "automatic transport",
+          "archiveBytes": 67109030,
+          "entries": 1,
+          "uncompressedBytes": 67108864,
+          "crcChecked": true,
+          "savedFileVerifiedByPage": true
+        },
+        {
+          "scenario": "MessageChannel",
+          "archiveBytes": 67109030,
+          "entries": 1,
+          "uncompressedBytes": 67108864,
+          "crcChecked": true,
+          "savedFileVerifiedByPage": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "command": "node scripts/smoke.mjs --zip64 --automatic-only",
+      "engineBuild": "c470cb8ccfe643d2",
+      "browser": "153.0.8010.36",
+      "options": {
+        "exactLength": false,
+        "holdWorkerUntilComplete": false,
+        "transferChunks": false
+      },
+      "savedZipResults": [
+        {
+          "scenario": "automatic transport",
+          "archiveBytes": 5435818422,
+          "entries": 2,
+          "uncompressedBytes": 5435817984,
+          "crcChecked": true,
+          "savedFileVerifiedByPage": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "command": "node scripts/smoke.mjs --automatic-only",
+      "engineBuild": "909b1d8ad8fd66bd",
+      "browser": "153.0.8010.36",
+      "options": {
+        "exactLength": false,
+        "holdWorkerUntilComplete": false,
+        "transferChunks": false
+      },
+      "savedZipResults": [
+        {
+          "scenario": "automatic transport",
+          "archiveBytes": 67109030,
+          "entries": 1,
+          "uncompressedBytes": 67108864,
+          "crcChecked": true,
+          "savedFileVerifiedByPage": true
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

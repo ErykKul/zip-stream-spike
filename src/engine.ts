@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { predictLength } from 'client-zip'
 import { useStreamingZipDownload } from '../vendor/frontend/src/sections/dataset/dataset-files/files-tree/useStreamingZipDownload'
-import { createServiceWorkerSink, resolveZipSink, transferableStreamsSupported } from '../vendor/frontend/src/sections/dataset/dataset-files/files-tree/zipStreamSink'
+import { createServiceWorkerSink, transferableStreamsSupported } from '../vendor/frontend/src/sections/dataset/dataset-files/files-tree/zipStreamSink'
 import sourceMetadata from '../generated/metadata.json'
 import checksums from '../generated/checksums.json'
 import { describePayload, makePattern } from './payload.mjs'
@@ -55,6 +55,9 @@ function report(run: any, state: any) {
     rangeRequests: run.rangeRequests,
     expectedPayloadBytes: run.bytes,
     zipBytes: run.zipBytes,
+    sinkEvents: run.sinkEvents,
+    sinkOptions: run.sinkOptions,
+    workerBytes: run.workerBytes,
     elapsedMs: performance.now() - run.startedAt,
     ...(run.probeConsumer ? { probeConsumer: run.probeConsumer } : {}),
     ...(run.scenario ? { scenario: run.scenario.snapshot() } : {})
@@ -145,12 +148,15 @@ function installSyntheticFetch(run: any, files: any[]) {
   return () => { if (window.fetch === interceptedFetch) window.fetch = originalFetch }
 }
 
-export async function start({ bytes, onState, transferStreams, scenario, cancellationProbe = false }: {
+export async function start({ bytes, onState, transferStreams, scenario, cancellationProbe = false, exactLength = false, transferChunks = false, holdWorkerUntilComplete = false }: {
   bytes: number
   onState: (state: any) => void
   transferStreams?: boolean
   scenario?: keyof typeof scenarios
   cancellationProbe?: boolean
+  exactLength?: boolean
+  transferChunks?: boolean
+  holdWorkerUntilComplete?: boolean
 }) {
   if (active) throw new Error('A ZIP download is already running.')
   if (scenario && (!scenarios[scenario] || (scenario !== 'complete' && bytes !== scenarios[scenario].bytes))) {
@@ -175,7 +181,8 @@ export async function start({ bytes, onState, transferStreams, scenario, cancell
     filename: `dataverse-zip-test-${bytes / (1024 ** 2)}MiB-${id}.zip`,
     diagnostic: transferStreams !== undefined || scenario !== undefined,
     transport: 'initializing', cancelled: false, cleanup: () => {},
-    scenario: null, lastHookState: null,
+    scenario: null, lastHookState: null, sinkEvents: [], workerBytes: 0,
+    sinkOptions: { exactLength, transferChunks, holdWorkerUntilComplete },
     zipBytes: Number(predictLength(entries.map(({ path, size }) => ({ name: path, size }))))
   }
   active = run
@@ -196,7 +203,16 @@ export async function start({ bytes, onState, transferStreams, scenario, cancell
     })
     document.addEventListener('visibilitychange', visibilityChanged)
     visibilityChanged()
+    let lastHeartbeat = Date.now()
     heartbeat = setInterval(() => {
+      const now = Date.now()
+      if (now - lastHeartbeat > 10_000) {
+        if (run.sinkEvents.length >= 300) run.sinkEvents.splice(10, 1)
+        run.sinkEvents.push({ type: 'timer-gap', at: new Date(now).toISOString(),
+          gapMs: now - lastHeartbeat, visibility: document.visibilityState,
+          note: 'May reflect sleep, throttling or a busy event loop; not proof of sleep.' })
+      }
+      lastHeartbeat = now
       if (active === run && run.lastHookState) report(run, run.lastHookState)
     }, 1000)
   }
@@ -204,11 +220,20 @@ export async function start({ bytes, onState, transferStreams, scenario, cancell
     filesDone: 0, failedSoFar: [], verificationFailures: [], pass: 1 })
   try {
     const serviceWorkerUrl = new URL('./reusable-components/zip-download-sw.js', import.meta.url).href
-    const sink = cancellationProbe
-      ? await createServiceWorkerSink({ url: serviceWorkerUrl, transferStreams, navigate: (url) => consumeProbe(run, url) })
-      : transferStreams === undefined
-      ? await resolveZipSink({ serviceWorkerUrl })
-      : await createServiceWorkerSink({ url: serviceWorkerUrl, transferStreams })
+    const sink = await createServiceWorkerSink({
+      url: serviceWorkerUrl, transferStreams, transferChunks, holdWorkerUntilComplete,
+      ...(cancellationProbe ? { navigate: (url: string) => consumeProbe(run, url) } : {}),
+      onEvent: (event) => {
+        if (typeof event.bytes === 'number') run.workerBytes = event.bytes
+        const last = run.sinkEvents.at(-1)
+        // Keep diagnostics bounded and sample progress; always retain terminal messages.
+        if (event.type !== 'zipdl-progress' || !last || performance.now() - last.elapsedMs >= 5000) {
+          if (run.sinkEvents.length >= 300) run.sinkEvents.splice(10, 1)
+          run.sinkEvents.push({ ...event, at: new Date().toISOString(), elapsedMs: performance.now() - run.startedAt })
+        }
+        if (active === run && run.lastHookState) report(run, run.lastHookState)
+      }
+    })
     if (run.cancelled) return
     if (!sink) throw new Error('The download service worker is unavailable.')
     run.transport = sink.streaming
@@ -219,7 +244,10 @@ export async function start({ bytes, onState, transferStreams, scenario, cancell
       throw new Error('This diagnostic requires a streaming service worker. The current browser selected the buffered fallback; the result is inconclusive.')
     }
     restoreFetch = installSyntheticFetch(run, files)
-    hookApi.start({ files, zipName: run.filename, serviceWorkerUrl, sink })
+    hookApi.start({ files, zipName: run.filename, serviceWorkerUrl, sink: {
+      ...sink,
+      save: (request) => sink.save({ ...request, ...(exactLength ? { expectedBytes: run.zipBytes } : {}) })
+    } })
   } catch (error) {
     run.scenario?.finish('error')
     run.cleanup()
@@ -361,4 +389,90 @@ export function verifySavedZip(file: File, { onProgress, signal, expectedPayload
     }
     worker.postMessage({ file, expectedPayloadBytes })
   })
+}
+
+// Small protocol comparisons run through the actual worker before the one native ZIP.
+// They are internal response checks, not native-download or saved-file evidence.
+export async function checkProtocol({ signal }: { signal?: AbortSignal } = {}) {
+  const serviceWorkerUrl = new URL('./reusable-components/zip-download-sw.js', import.meta.url).href
+  const frame = document.createElement('iframe')
+  frame.hidden = true
+  frame.src = new URL('./reusable-components/check.html', import.meta.url).href
+  const ready = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Protocol check frame did not load.')), 10_000)
+    frame.onload = () => { clearTimeout(timer); resolve() }
+    frame.onerror = () => { clearTimeout(timer); reject(new Error('Protocol check frame failed.')) }
+  })
+  document.body.appendChild(frame)
+  const cases: any[] = []
+  try {
+    await ready
+    const variants = [
+      { name: 'cloned-chunks', transferStreams: false, transferChunks: false },
+      { name: 'transferred-chunks', transferStreams: false, transferChunks: true },
+      { name: 'declared-length', transferStreams: false, exactLength: true },
+      { name: 'incorrect-length', transferStreams: false, exactLength: true, truncate: true },
+      { name: 'worker-lifetime', transferStreams: false, holdWorkerUntilComplete: true },
+      ...(transferableStreamsSupported() ? [{ name: 'transferred-stream', transferStreams: true }] : [])
+    ]
+    for (const variant of variants) {
+      signal?.throwIfAborted()
+      const caseStarted = performance.now()
+      const total = 1024 * 1024 + 17
+      const events: any[] = []
+      let consumed = 0
+      let responseError: string | undefined
+      let contentLength: string | null = null
+      let consumer: Promise<void> | undefined
+      let savingError: string | undefined
+      const caseController = new AbortController()
+      const abortCase = () => caseController.abort(signal?.reason)
+      signal?.addEventListener('abort', abortCase, { once: true })
+      const timer = setTimeout(() => caseController.abort(new Error('Protocol check timed out.')), 15_000)
+      try {
+        const sink = await createServiceWorkerSink({
+          url: serviceWorkerUrl, ...variant, firstByteMs: 10_000, completionMs: 10_000,
+          onEvent: (event) => events.push(event),
+          navigate: (url) => {
+            consumer = (async () => {
+              const response = await frame.contentWindow!.fetch(url, { signal: caseController.signal })
+              if (!response.ok || !response.body) throw new Error('Protocol response unavailable')
+              contentLength = response.headers.get('content-length')
+              const reader = response.body.getReader()
+              for (;;) {
+                const next = await reader.read()
+                if (next.done) break
+                for (const byte of next.value) {
+                  if (byte !== 42) throw new Error('Protocol payload bytes changed')
+                }
+                consumed += next.value.byteLength
+              }
+            })().catch((error) => { responseError = String(error) })
+            return () => {}
+          }
+        })
+        if (!sink) throw new Error('Protocol check requires the download worker')
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) { controller.enqueue(new Uint8Array(total).fill(42)); controller.close() }
+        })
+        await sink.save({ name: "protocol's (test)*.zip", body: stream, signal: caseController.signal,
+          ...(variant.exactLength ? { expectedBytes: total + (variant.truncate ? 1 : 0) } : {})
+        }).catch((error) => { savingError = String(error) })
+        await consumer
+        signal?.throwIfAborted()
+        const passed = variant.truncate
+          ? Boolean(savingError && responseError && events.some((event) => event.type === 'zipdl-error'))
+          : !savingError && !responseError && consumed === total
+            && events.some((event) => event.type === 'zipdl-closed' && event.bytes === total)
+            && contentLength === (variant.exactLength ? String(total) : null)
+        cases.push({ ...variant, elapsedMs: performance.now() - caseStarted, passed, consumed, contentLength, savingError, responseError, events })
+        if (!passed) return { passed: false, cases }
+      } finally {
+        clearTimeout(timer)
+        signal?.removeEventListener('abort', abortCase)
+        caseController.abort()
+      }
+    }
+    return { passed: true, cases, scope: 'Internal worker responses; main native ZIP must still be saved and verified.' }
+  } finally { frame.remove() }
 }

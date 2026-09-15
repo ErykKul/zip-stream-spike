@@ -59,7 +59,7 @@ function showResult() {
       ? `${bytes(result.targetPayloadBytes)} of ZIP payload was saved and verified on this ${result.ramGiB} GB RAM computer. This records a successful run on this browser; it is not a measurement of its total memory use.`
       : 'The saved ZIP passed the integrity check. Next, choose your RAM size to test a larger download.'
   } else if (activeStatuses.has(result.status) && result.status !== 'verifying') {
-    $('result-heading').textContent = result.status === 'checking' ? 'Checking stopping' : result.status === 'paused' && !result.suite ? 'Waiting for Retry' : 'Test in progress'
+    $('result-heading').textContent = result.status === 'checking' ? 'Checks in progress' : result.status === 'paused' && !result.suite ? 'Waiting for Retry' : 'Test in progress'
     $('result-summary').textContent = result.suite
       ? 'The automatic checks are running. Keep this tab open and your computer awake. The frontend retries the simulated interruptions automatically.'
       : result.status === 'paused'
@@ -111,7 +111,8 @@ function handleState(state, id) {
     filesDone: state.filesDone,
     totalFiles: state.totalFiles,
     failedFiles: state.failedSoFar,
-    checksumFailures: state.verificationFailures
+    checksumFailures: state.verificationFailures,
+    sinkEvents: state.sinkEvents, sinkOptions: state.sinkOptions, workerBytes: state.workerBytes
   })
   if (state.scenario) result.scenario = state.scenario
   sampleHeap()
@@ -168,6 +169,7 @@ function handleState(state, id) {
       const events = result.scenario?.events || []
       result.suite.phase = 'verification-pending'
       result.suite.checks = {
+        protocol: result.suite.protocol?.passed === true,
         cancellation: result.suite.cancellation?.passed === true,
         retryAndResume: events.some((event) => event.type === 'http-error' && event.status === 503)
           && events.some((event) => event.type === 'body-error')
@@ -204,7 +206,7 @@ function handleState(state, id) {
   }
 }
 
-async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenario, suite = false } = {}) {
+async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenario, suite = false, exactLength = false, transferChunks = false, holdWorkerUntilComplete = false } = {}) {
   await ready
   if (!engine) throw new Error('The test engine did not load.')
   if (busy) throw new Error('Stop the current test first.')
@@ -217,7 +219,7 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
   suiteController = controller
   previousEngineStatus = ''
   result = {
-    schema: 2,
+    schema: 3,
     page: location.origin + location.pathname,
     startedAt: new Date().toISOString(),
     frontendCommit: engine.metadata.sourceCommit,
@@ -229,11 +231,11 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
     browserBrands: navigator.userAgentData?.brands,
     ramGiB,
     targetPayloadBytes: totalBytes,
-    testOptions: { bytes: totalBytes, ramGiB, scenario, suite, transferStreams },
-    diagnostic: scenario || (transferStreams === false ? 'forced-message-channel' : false),
+    testOptions: { bytes: totalBytes, ramGiB, scenario, suite, transferStreams, exactLength, transferChunks, holdWorkerUntilComplete },
+    diagnostic: scenario || (exactLength || holdWorkerUntilComplete || transferChunks ? 'sink-comparison' : transferStreams === false ? 'forced-message-channel' : false),
     scenario: scenarioSpec ? { ...scenarioSpec, bytes: totalBytes, phase: 'preparing', elapsedMs: 0, events: [] } : undefined,
     suite: suite ? {
-      id: 'automatic-browser-check-v2', phase: 'cancellation-check', passed: false,
+      id: 'automatic-browser-check-v3', phase: 'protocol-check', passed: false,
       cancellation: { passed: false, status: 'pending' },
       notCovered: [
         'Cancellation using the browser download-manager controls',
@@ -242,6 +244,7 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
         'OS sleep/wake; background coverage depends on the recorded visibility intervals'
       ]
     } : undefined,
+    environmentEvents: [{ type: 'start', at: new Date().toISOString(), online: navigator.onLine, visibility: document.visibilityState }],
     status: 'preparing',
     memoryObservation: 'not-measured',
     verified: false,
@@ -249,6 +252,7 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
   }
   setBusy(true)
   $('memory-observation').value = 'not-measured'
+  $('system-version').value = ''
   $('copy-status').textContent = ''
   $('result-panel').hidden = true
   $('previous-run').hidden = true
@@ -256,7 +260,7 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
   $('verify-file').value = ''
   $('retry-run').hidden = true
   $('scenario-panel').hidden = !scenarioSpec
-  $('manual-observations').hidden = Boolean(suite || scenario === 'complete')
+  $('manual-observations').hidden = false
   $('scenario-progress').textContent = ''
   $('diagnostic-action').value = 'not-recorded'
   $('download-observation').value = 'not-observed'
@@ -286,6 +290,12 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
   try {
     if (suite) {
       result.status = 'checking'
+      $('status-heading').textContent = 'Checking stream delivery'
+      $('status-detail').textContent = 'Checking chunk delivery, completion and truncated responses before starting your ZIP.'
+      result.suite.protocol = await engine.checkProtocol({ signal: controller.signal })
+      if (!result.suite.protocol.passed) throw new Error('The stream delivery checks did not pass. Copy the result for Eryk.')
+      result.status = 'checking'
+      result.suite.phase = 'cancellation-check'
       $('status-heading').textContent = 'Checking stopping'
       $('status-detail').textContent = 'Checking that a waiting stream stops cleanly. Your large ZIP download starts automatically afterward.'
       $('progress').removeAttribute('value')
@@ -315,7 +325,7 @@ async function startRun({ bytes: totalBytes, ramGiB = 0, transferStreams, scenar
       store(true)
     }
     if (controller?.signal.aborted || id !== runId) return
-    await engine.start({ bytes: totalBytes, onState: (state) => handleState(state, id), ...(scenario ? { scenario } : {}), ...(transferStreams === false ? { transferStreams: false } : {}) })
+    await engine.start({ bytes: totalBytes, exactLength, transferChunks, holdWorkerUntilComplete, onState: (state) => handleState(state, id), ...(scenario ? { scenario } : {}), ...(transferStreams === false ? { transferStreams: false } : {}) })
   } catch (error) {
     if (id !== runId) return
     if (controller?.signal.aborted) {
@@ -353,6 +363,7 @@ function newTest() {
   $('result-json').textContent = ''
   $('copy-status').textContent = ''
   $('memory-observation').value = 'not-measured'
+  $('system-version').value = ''
   document.querySelectorAll('.ram-button').forEach((button) => button.setAttribute('aria-pressed', 'false'))
   $('pick-heading').scrollIntoView({ block: 'center' })
   document.querySelector('.ram-button').focus({ preventScroll: true })
@@ -409,7 +420,7 @@ async function verifyFile(file) {
       result.suite.checks = { ...result.suite.checks, savedZip: verification.verified === true }
       result.suite.passed = result.scenario?.outcome === 'source-complete'
         && result.suite.cancellation?.passed === true
-        && ['cancellation', 'retryAndResume', 'sourceSilence', 'streamLifetime', 'savedZip']
+        && ['protocol', 'cancellation', 'retryAndResume', 'sourceSilence', 'streamLifetime', 'savedZip']
           .every((check) => result.suite.checks[check] === true)
       result.suite.phase = result.suite.passed ? 'complete' : 'inconclusive'
     }
@@ -445,13 +456,22 @@ async function verifyFile(file) {
   }
 }
 
+function selectedSinkOptions() {
+  const mode = $('test-transport').value
+  return {
+    ...(mode === 'auto' ? {} : { transferStreams: false, transferChunks: mode === 'transfer' }),
+    exactLength: $('exact-length').checked,
+    holdWorkerUntilComplete: $('hold-worker').checked
+  }
+}
+
 document.querySelectorAll('.ram-button').forEach((button) => {
   button.addEventListener('click', () => {
     const ramGiB = Number(button.dataset.ram)
-    void startSuite({ ramGiB, bytes: (ramGiB + Math.max(1, Math.ceil(ramGiB * 0.09))) * GiB })
+    void startSuite({ ...selectedSinkOptions(), ramGiB, bytes: (ramGiB + Math.max(1, Math.ceil(ramGiB * 0.09))) * GiB })
   })
 })
-$('smoke-test').addEventListener('click', () => void startRun({ bytes: 64 * MiB }))
+$('smoke-test').addEventListener('click', () => void startRun({ ...selectedSinkOptions(), bytes: 64 * MiB }))
 $('new-test').addEventListener('click', newTest)
 $('repeat-test').addEventListener('click', () => {
   if (busy || !result) return
@@ -493,6 +513,9 @@ $('cancel-run').addEventListener('click', () => {
     setBusy(false)
     showResult()
   }
+})
+$('system-version').addEventListener('input', (event) => {
+  if (result) { result.manualVersions = event.target.value.slice(0, 160); showResult() }
 })
 $('memory-observation').addEventListener('change', (event) => {
   if (result) { result.memoryObservation = event.target.value; showResult() }
@@ -552,7 +575,7 @@ if (result?.scenario) {
   $('scenario-panel').hidden = false
   $('scenario-instructions').textContent = `${result.scenario.title}. This is the saved report; a previous transfer is not resumed by reloading.`
   $('scenario-progress').textContent = result.scenario.detail || result.scenario.phase || ''
-  $('manual-observations').hidden = Boolean(result.suite || result.scenario.id === 'complete')
+  $('manual-observations').hidden = false
   $('diagnostic-action').value = result.manualObservations?.action || 'not-recorded'
   $('download-observation').value = result.manualObservations?.browserDownload || 'not-observed'
   $('guard-observation').value = result.manualObservations?.navigationGuard || 'not-checked'
@@ -580,7 +603,7 @@ const ready = (async () => {
         return
       }
     }
-    engine = await import('./engine.js?v=20260914-6')
+    engine = await import('./engine.js?v=20260915-7')
     $('source-version').textContent = `Frontend source: ${engine.metadata.sourceCommit}. Test build: ${engine.metadata.buildId}.`
     $('boot-status').textContent = 'Ready. Choose a memory size to begin.'
     setBusy(false)
@@ -589,3 +612,17 @@ const ready = (async () => {
   }
 })()
 window.spikeTest = { startRun, startSuite, verifyFile, getResult: () => result }
+
+
+function recordEnvironment(type, event) {
+  if (!result) return
+  const events = result.environmentEvents ??= []
+  if (events.length >= 200) events.splice(10, 1)
+  events.push({ type, at: new Date().toISOString(), online: navigator.onLine,
+    visibility: document.visibilityState, ...(event && 'persisted' in event ? { persisted: event.persisted } : {}) })
+  if (type !== 'pagehide') store(true)
+}
+for (const type of ['online', 'offline', 'pageshow', 'pagehide']) {
+  window.addEventListener(type, (event) => recordEnvironment(type, event))
+}
+document.addEventListener('visibilitychange', () => recordEnvironment('visibilitychange'))
